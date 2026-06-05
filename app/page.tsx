@@ -40,9 +40,20 @@ export default function Home() {
     loadRules();
   }, [loadRules]);
 
+  const supportedExtensions = ['.xlsx', '.xls', '.docx', '.pdf'];
+
+  const validateFile = (file: File): boolean => {
+    const fileName = file.name.toLowerCase();
+    const isValid = supportedExtensions.some(ext => fileName.endsWith(ext));
+    if (!isValid) {
+      toast.error(`不支持的文件格式：${file.name}。仅支持 Excel (.xlsx/.xls)、Word (.docx)、PDF 文件。`);
+    }
+    return isValid;
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
+    if (file && validateFile(file)) {
       setUploadedFile(file);
       setSelectedRule(null);
       setParsedOrders([]);
@@ -53,7 +64,7 @@ export default function Home() {
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     const file = e.dataTransfer.files?.[0];
-    if (file) {
+    if (file && validateFile(file)) {
       setUploadedFile(file);
       setSelectedRule(null);
       setParsedOrders([]);
@@ -477,6 +488,24 @@ export default function Home() {
                 开始解析
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'preview' && parsedOrders.length === 0 && (
+        <div className="card animate-slideUp">
+          <div className="p-12 text-center">
+            <div className="w-16 h-16 bg-gray-100 rounded-xl flex items-center justify-center mx-auto mb-4">
+              <FileText className="w-8 h-8 text-gray-300" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-800 mb-2">没有可预览的数据</h3>
+            <p className="text-gray-500 mb-6">运单已提交或尚未解析，请返回上传页面重新导入</p>
+            <button
+              onClick={() => setActiveTab('upload')}
+              className="btn btn-primary"
+            >
+              返回上传
+            </button>
           </div>
         </div>
       )}

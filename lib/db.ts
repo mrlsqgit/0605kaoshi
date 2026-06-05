@@ -118,22 +118,24 @@ async function initDatabase() {
 
       getOrders: async (filter: OrderQueryFilter, page: number, pageSize: number): Promise<PaginatedResult<Order>> => {
         try {
-          // Build dynamic query using sql template strings
+          // Build dynamic query using conditional chaining
           let query = sql`SELECT * FROM orders`;
           let countQuery = sql`SELECT COUNT(*) as count FROM orders`;
           
           if (filter.externalCode) {
-            query = sql`${query} WHERE external_code LIKE ${`%${filter.externalCode}%`}`;
-            countQuery = sql`${countQuery} WHERE external_code LIKE ${`%${filter.externalCode}%`}`;
+            const codePattern = `%${filter.externalCode}%`;
+            query = sql`${query} WHERE external_code LIKE ${codePattern}`;
+            countQuery = sql`${countQuery} WHERE external_code LIKE ${codePattern}`;
           }
           
           if (filter.recipientName) {
+            const namePattern = `%${filter.recipientName}%`;
             if (filter.externalCode) {
-              query = sql`${query} AND recipient_name LIKE ${`%${filter.recipientName}%`}`;
-              countQuery = sql`${countQuery} AND recipient_name LIKE ${`%${filter.recipientName}%`}`;
+              query = sql`${query} AND recipient_name LIKE ${namePattern}`;
+              countQuery = sql`${countQuery} AND recipient_name LIKE ${namePattern}`;
             } else {
-              query = sql`${query} WHERE recipient_name LIKE ${`%${filter.recipientName}%`}`;
-              countQuery = sql`${countQuery} WHERE recipient_name LIKE ${`%${filter.recipientName}%`}`;
+              query = sql`${query} WHERE recipient_name LIKE ${namePattern}`;
+              countQuery = sql`${countQuery} WHERE recipient_name LIKE ${namePattern}`;
             }
           }
           
@@ -162,8 +164,7 @@ async function initDatabase() {
           const total = parseInt(totalResult[0].count as string);
           
           // Data query with pagination
-          query = sql`${query} ORDER BY created_at DESC LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}`;
-          const result = await query as Array<Record<string, unknown>>;
+          const result = await sql`${query} ORDER BY created_at DESC LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}` as Array<Record<string, unknown>>;
           
           const parseJson = (value: any) => {
             if (typeof value === 'object') return value;
