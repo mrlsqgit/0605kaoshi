@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-toastify';
 import { Plus, Edit2, Trash2, Copy, FileText, Settings, Eye, X, Check, Sparkles, Upload, ChevronDown, ChevronUp, Grid3X3, List } from 'lucide-react';
 import { ParseRule, FieldMapping, SectionRule, ExtractType } from '@/lib/types';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 
 const TARGET_FIELDS: { value: string; label: string; description: string }[] = [
   { value: 'externalCode', label: '外部编码', description: '配送单号' },
@@ -45,6 +46,7 @@ export default function RulesPage() {
   const [activeTab, setActiveTab] = useState<'basic' | 'mappings' | 'sections' | 'advanced'>('basic');
   const [expandedMapping, setExpandedMapping] = useState<number | null>(null);
   const [expandedSection, setExpandedSection] = useState<number | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; ruleId: string | null }>({ isOpen: false, ruleId: null });
 
   const loadRules = useCallback(async () => {
     setLoading(true);
@@ -67,11 +69,16 @@ export default function RulesPage() {
     loadRules();
   }, [loadRules]);
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('确定要删除这条规则吗？')) return;
+  const handleDeleteClick = (id: string) => {
+    setDeleteConfirm({ isOpen: true, ruleId: id });
+  };
+
+  const handleDeleteConfirm = async () => {
+    const { ruleId } = deleteConfirm;
+    if (!ruleId) return;
     
     try {
-      const res = await fetch(`/api/rules/${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/rules/${ruleId}`, { method: 'DELETE' });
       const data = await res.json();
       if (data.success) {
         toast.success('规则删除成功');
@@ -81,7 +88,13 @@ export default function RulesPage() {
       }
     } catch {
       toast.error('删除失败');
+    } finally {
+      setDeleteConfirm({ isOpen: false, ruleId: null });
     }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteConfirm({ isOpen: false, ruleId: null });
   };
 
   const handleCopy = async (rule: ParseRule) => {
@@ -356,7 +369,7 @@ export default function RulesPage() {
                           <Copy className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => handleDelete(rule.id)}
+                          onClick={() => handleDeleteClick(rule.id)}
                           className="text-gray-400 hover:text-red-600 p-1"
                           title="删除"
                         >
@@ -1203,6 +1216,18 @@ export default function RulesPage() {
           </div>
         </div>
       )}
+
+      {/* Delete Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={deleteConfirm.isOpen}
+        title="删除规则"
+        message="确定要删除这条规则吗？此操作不可撤销。"
+        type="danger"
+        confirmText="删除"
+        cancelText="取消"
+        onConfirm={handleDeleteConfirm}
+        onCancel={handleDeleteCancel}
+      />
     </div>
   );
 }

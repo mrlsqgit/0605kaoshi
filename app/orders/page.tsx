@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-toastify';
 import { Search, Eye, Trash2, ChevronLeft, ChevronRight, FileText, Package, Loader2 } from 'lucide-react';
 import { Order, OrderQueryFilter } from '@/lib/types';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -14,6 +15,7 @@ export default function OrdersPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [filter, setFilter] = useState<OrderQueryFilter>({});
+  const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; orderId: string | null }>({ isOpen: false, orderId: null });
 
   const loadOrders = useCallback(async () => {
     setLoading(true);
@@ -47,14 +49,17 @@ export default function OrdersPage() {
 
   const totalPages = Math.ceil(total / pageSize);
 
-  const handleDeleteOrder = async (id: string) => {
-    if (!window.confirm('确定要删除这条运单记录吗？此操作不可撤销。')) {
-      return;
-    }
+  const handleDeleteClick = (id: string) => {
+    setDeleteConfirm({ isOpen: true, orderId: id });
+  };
+
+  const handleDeleteConfirm = async () => {
+    const { orderId } = deleteConfirm;
+    if (!orderId) return;
     
-    setDeletingId(id);
+    setDeletingId(orderId);
     try {
-      const res = await fetch(`/api/orders/${id}`, {
+      const res = await fetch(`/api/orders/${orderId}`, {
         method: 'DELETE',
       });
       const data = await res.json();
@@ -68,7 +73,12 @@ export default function OrdersPage() {
       toast.error('删除失败');
     } finally {
       setDeletingId(null);
+      setDeleteConfirm({ isOpen: false, orderId: null });
     }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteConfirm({ isOpen: false, orderId: null });
   };
 
   return (
@@ -193,7 +203,7 @@ export default function OrdersPage() {
                           <Eye className="w-5 h-5" />
                         </button>
                         <button
-                          onClick={() => handleDeleteOrder(order.id)}
+                          onClick={() => handleDeleteClick(order.id)}
                           disabled={deletingId === order.id}
                           className="w-8 h-8 flex items-center justify-center text-red-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all disabled:opacity-50"
                           title="删除"
@@ -310,6 +320,18 @@ export default function OrdersPage() {
           </div>
         </div>
       )}
+
+      {/* Delete Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={deleteConfirm.isOpen}
+        title="删除运单"
+        message="确定要删除这条运单记录吗？此操作不可撤销。"
+        type="danger"
+        confirmText="删除"
+        cancelText="取消"
+        onConfirm={handleDeleteConfirm}
+        onCancel={handleDeleteCancel}
+      />
     </div>
   );
 }
