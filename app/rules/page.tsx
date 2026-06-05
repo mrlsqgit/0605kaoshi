@@ -48,6 +48,17 @@ export default function RulesPage() {
   const [expandedSection, setExpandedSection] = useState<number | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; ruleId: string | null }>({ isOpen: false, ruleId: null });
 
+  const supportedExtensions = ['.xlsx', '.xls', '.docx', '.pdf'];
+
+  const validateFile = (file: File): boolean => {
+    const fileName = file.name.toLowerCase();
+    const isValid = supportedExtensions.some(ext => fileName.endsWith(ext));
+    if (!isValid) {
+      toast.error(`不支持的文件格式：${file.name}。仅支持 Excel (.xlsx/.xls)、Word (.docx)、PDF 文件。`);
+    }
+    return isValid;
+  };
+
   const loadRules = useCallback(async () => {
     setLoading(true);
     try {
@@ -412,7 +423,14 @@ export default function RulesPage() {
                   type="file"
                   accept=".xlsx,.xls,.docx,.pdf"
                   className="hidden"
-                  onChange={(e) => setAiFile(e.target.files?.[0] || null)}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file && validateFile(file)) {
+                      setAiFile(file);
+                    } else {
+                      setAiFile(null);
+                    }
+                  }}
                 />
               </div>
             </div>
