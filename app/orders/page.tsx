@@ -11,6 +11,7 @@ export default function OrdersPage() {
   const [page, setPage] = useState(1);
   const [pageSize] = useState(20);
   const [loading, setLoading] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [filter, setFilter] = useState<OrderQueryFilter>({});
 
@@ -45,6 +46,30 @@ export default function OrdersPage() {
   }, [loadOrders]);
 
   const totalPages = Math.ceil(total / pageSize);
+
+  const handleDeleteOrder = async (id: string) => {
+    if (!window.confirm('确定要删除这条运单记录吗？此操作不可撤销。')) {
+      return;
+    }
+    
+    setDeletingId(id);
+    try {
+      const res = await fetch(`/api/orders/${id}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success('删除成功');
+        loadOrders();
+      } else {
+        toast.error(data.error || '删除失败');
+      }
+    } catch {
+      toast.error('删除失败');
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   return (
     <div className="space-y-6 animate-fadeIn">
@@ -113,7 +138,7 @@ export default function OrdersPage() {
                 <th className="px-5 py-3 text-left text-sm font-semibold text-gray-600 border-b">电话</th>
                 <th className="px-5 py-3 text-left text-sm font-semibold text-gray-600 border-b">物品数</th>
                 <th className="px-5 py-3 text-left text-sm font-semibold text-gray-600 border-b">导入时间</th>
-                <th className="px-5 py-3 text-left text-sm font-semibold text-gray-600 border-b">操作</th>
+                <th className="px-5 py-3 text-left text-sm font-semibold text-gray-600 border-b w-24">操作</th>
               </tr>
             </thead>
             <tbody>
@@ -159,13 +184,27 @@ export default function OrdersPage() {
                       {new Date(order.createdAt).toLocaleString('zh-CN')}
                     </td>
                     <td className="px-5 py-3">
-                      <button
-                        onClick={() => setSelectedOrder(order)}
-                        className="w-8 h-8 flex items-center justify-center text-primary-600 hover:text-primary-700 hover:bg-primary-50 rounded-lg transition-all"
-                        title="查看详情"
-                      >
-                        <Eye className="w-5 h-5" />
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setSelectedOrder(order)}
+                          className="w-8 h-8 flex items-center justify-center text-primary-600 hover:text-primary-700 hover:bg-primary-50 rounded-lg transition-all"
+                          title="查看详情"
+                        >
+                          <Eye className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteOrder(order.id)}
+                          disabled={deletingId === order.id}
+                          className="w-8 h-8 flex items-center justify-center text-red-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all disabled:opacity-50"
+                          title="删除"
+                        >
+                          {deletingId === order.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="w-5 h-5" />
+                          )}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))

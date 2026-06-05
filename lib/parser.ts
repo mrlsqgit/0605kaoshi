@@ -237,6 +237,9 @@ function parseMatrixExcel(sheet: string[][], sheetName: string, rule: ParseRule)
         skuCode: colHeaderLabels[colIdx - dataStartCol + 1] || `SKU_${colIdx + 1}`,
         skuName: colHeaderLabels[colIdx - dataStartCol + 1] || `Item_${colIdx + 1}`,
         quantity: parseFloat(value) || 1,
+        weight: 0,
+        pieces: 1,
+        temperature: '',
         spec: rowLabel,
         remark: '',
         rowIndex: rowIdx + 1,
@@ -303,6 +306,9 @@ function parseSingleCard(cardLines: string[], sheetName: string, rule: ParseRule
     skuCode: '',
     skuName: '',
     quantity: 1,
+    weight: 0,
+    pieces: 1,
+    temperature: '',
     spec: '',
     remark: '',
     rowIndex: 0,
@@ -430,6 +436,9 @@ function parsePdfWithRule(rule: ParseRule, content: string): ParsedOrder[] {
       skuCode: '',
       skuName: '',
       quantity: 1,
+      weight: 0,
+      pieces: 1,
+      temperature: '',
       spec: '',
       remark: '',
       rowIndex: pageIndex,
@@ -502,6 +511,9 @@ function createOrderFromRow(row: string[], headers: { [key: string]: number }, m
     skuCode: '',
     skuName: '',
     quantity: 1,
+    weight: 0,
+    pieces: 1,
+    temperature: '',
     spec: '',
     remark: '',
     rowIndex: rowIndex + 1,
@@ -566,6 +578,8 @@ function extractValueFromLine(line: string, mapping: any): string {
   return '';
 }
 
+const VALID_TEMPERATURES = ['常温', '冷藏', '冷冻', ''];
+
 function validateOrderData(order: Partial<ParsedOrder>): ValidationError[] {
   const errors: ValidationError[] = [];
   
@@ -579,6 +593,22 @@ function validateOrderData(order: Partial<ParsedOrder>): ValidationError[] {
   
   if (!order.quantity || order.quantity <= 0) {
     errors.push({ field: 'quantity', message: 'SKU发货数量必须为正数' });
+  }
+  
+  if (order.weight !== undefined && order.weight !== null && order.weight <= 0) {
+    errors.push({ field: 'weight', message: '重量必须为正数' });
+  }
+  
+  if (order.pieces !== undefined && order.pieces !== null) {
+    if (order.pieces <= 0) {
+      errors.push({ field: 'pieces', message: '件数必须为正整数' });
+    } else if (!Number.isInteger(order.pieces)) {
+      errors.push({ field: 'pieces', message: '件数必须为整数' });
+    }
+  }
+  
+  if (order.temperature && !VALID_TEMPERATURES.includes(order.temperature)) {
+    errors.push({ field: 'temperature', message: `温层值必须为：${VALID_TEMPERATURES.filter(Boolean).join('、')}` });
   }
   
   const hasGroupA = order.storeName && order.storeName.trim();
@@ -619,6 +649,9 @@ function validateOrder(order: Partial<ParsedOrder>, rowIndex: number): ParsedOrd
     skuCode: order.skuCode || '',
     skuName: order.skuName || '',
     quantity: order.quantity || 1,
+    weight: order.weight || 0,
+    pieces: order.pieces || 1,
+    temperature: order.temperature || '',
     spec: order.spec || '',
     remark: order.remark || '',
     rowIndex: rowIndex + 1,

@@ -31,6 +31,9 @@ export interface ParsedOrder {
   skuCode: string;
   skuName: string;
   quantity: number;
+  weight: number;
+  pieces: number;
+  temperature: string;
   spec: string;
   remark: string;
   rowIndex: number;
