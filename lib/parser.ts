@@ -570,9 +570,11 @@ function extractValueFromLine(line: string, mapping: any): string {
     }
   }
   
-  const parts = line.split(mapping.source);
-  if (parts.length > 1) {
-    return parts[1].trim();
+  if (typeof line === 'string' && mapping.source) {
+    const parts = line.split(mapping.source);
+    if (parts.length > 1) {
+      return parts[1].trim();
+    }
   }
   
   return '';
