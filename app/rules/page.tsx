@@ -52,6 +52,13 @@ export default function RulesPage() {
 
   const validateFile = (file: File): boolean => {
     const fileName = file.name.toLowerCase();
+    
+    // 过滤临时文件（Excel打开时创建的~$开头的文件）
+    if (fileName.startsWith('~$')) {
+      toast.error(`不能上传临时文件：${file.name}。请关闭正在编辑的Excel文件后再尝试上传。`);
+      return false;
+    }
+    
     const isValid = supportedExtensions.some(ext => fileName.endsWith(ext));
     if (!isValid) {
       toast.error(`不支持的文件格式：${file.name}。仅支持 Excel (.xlsx/.xls)、Word (.docx)、PDF 文件。`);
