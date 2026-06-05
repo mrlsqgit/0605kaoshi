@@ -9,13 +9,18 @@ let mockDb: any = null;
 
 // Try to load Neon DB, fallback to mock if fails
 async function initDatabase() {
-  if (mockDb) return;
+  if (mockDb) {
+    console.log('initDatabase: Database already initialized, mock mode:', isMockMode);
+    return;
+  }
 
   try {
     // Check if we should use mock mode based on environment
     const useMock = process.env.NODE_ENV === 'development' || 
                     !process.env.DATABASE_URL ||
                     process.env.USE_MOCK_DB === 'true';
+    
+    console.log('initDatabase: useMock:', useMock, 'NODE_ENV:', process.env.NODE_ENV, 'DATABASE_URL exists:', !!process.env.DATABASE_URL);
     
     if (useMock) {
       console.log('🧪 Using mock database for development');
@@ -131,9 +136,13 @@ async function initDatabase() {
 
       saveOrders: async (orders: Order[]) => {
         try {
-          for (const order of orders) {
+          console.log('saveOrders: Starting to save', orders.length, 'orders');
+          for (let i = 0; i < orders.length; i++) {
+            const order = orders[i];
+            console.log(`saveOrders: Saving order ${i + 1}/${orders.length}: id=${order.id}, externalCode=${order.externalCode}`);
             await mockDb.saveOrder(order);
           }
+          console.log('saveOrders: Successfully saved all', orders.length, 'orders');
         } catch (error) {
           console.error('Error saving orders:', error);
           throw error;
