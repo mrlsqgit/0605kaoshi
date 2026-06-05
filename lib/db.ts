@@ -19,7 +19,21 @@ async function initDatabase() {
     
     if (useMock) {
       console.log('🧪 Using mock database for development');
-      mockDb = await import('./db-mock');
+      const mockModule = await import('./db-mock');
+      // Properly map the mock module exports
+      mockDb = {
+        createTables: mockModule.createTables,
+        saveOrder: mockModule.saveOrder,
+        saveOrders: mockModule.saveOrders,
+        getOrders: mockModule.getOrders,
+        getOrderById: mockModule.getOrderById,
+        deleteOrder: mockModule.deleteOrder,
+        getExistingExternalCodes: mockModule.getExistingExternalCodes,
+        saveParseRule: mockModule.saveParseRule,
+        getParseRules: mockModule.getParseRules,
+        getParseRuleById: mockModule.getParseRuleById,
+        deleteParseRule: mockModule.deleteParseRule,
+      };
       isMockMode = true;
       return;
     }
