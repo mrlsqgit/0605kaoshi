@@ -118,45 +118,64 @@ async function initDatabase() {
 
       getOrders: async (filter: OrderQueryFilter, page: number, pageSize: number): Promise<PaginatedResult<Order>> => {
         try {
-          const conditions: any[] = [];
+          // Build dynamic query using sql template strings
+          let query = sql`SELECT * FROM orders`;
+          let countQuery = sql`SELECT COUNT(*) as count FROM orders`;
           
           if (filter.externalCode) {
-            conditions.push(sql`external_code LIKE ${`%${filter.externalCode}%`}`);
+            query = sql`${query} WHERE external_code LIKE ${`%${filter.externalCode}%`}`;
+            countQuery = sql`${countQuery} WHERE external_code LIKE ${`%${filter.externalCode}%`}`;
           }
           
           if (filter.recipientName) {
-            conditions.push(sql`recipient_name LIKE ${`%${filter.recipientName}%`}`);
+            if (filter.externalCode) {
+              query = sql`${query} AND recipient_name LIKE ${`%${filter.recipientName}%`}`;
+              countQuery = sql`${countQuery} AND recipient_name LIKE ${`%${filter.recipientName}%`}`;
+            } else {
+              query = sql`${query} WHERE recipient_name LIKE ${`%${filter.recipientName}%`}`;
+              countQuery = sql`${countQuery} WHERE recipient_name LIKE ${`%${filter.recipientName}%`}`;
+            }
           }
           
           if (filter.startDate) {
-            conditions.push(sql`created_at >= ${filter.startDate}`);
+            if (filter.externalCode || filter.recipientName) {
+              query = sql`${query} AND created_at >= ${filter.startDate}`;
+              countQuery = sql`${countQuery} AND created_at >= ${filter.startDate}`;
+            } else {
+              query = sql`${query} WHERE created_at >= ${filter.startDate}`;
+              countQuery = sql`${countQuery} WHERE created_at >= ${filter.startDate}`;
+            }
           }
           
           if (filter.endDate) {
-            conditions.push(sql`created_at <= ${filter.endDate}`);
+            if (filter.externalCode || filter.recipientName || filter.startDate) {
+              query = sql`${query} AND created_at <= ${filter.endDate}`;
+              countQuery = sql`${countQuery} AND created_at <= ${filter.endDate}`;
+            } else {
+              query = sql`${query} WHERE created_at <= ${filter.endDate}`;
+              countQuery = sql`${countQuery} WHERE created_at <= ${filter.endDate}`;
+            }
           }
           
-          let whereClause = sql``;
-          if (conditions.length > 0) {
-            whereClause = conditions.reduce((acc, cur, idx) => 
-              idx === 0 ? sql`${cur}` : sql`${acc} AND ${cur}`
-            );
-          }
-          
-          let countQuery = sql`SELECT COUNT(*) as count FROM orders`;
-          if (conditions.length > 0) {
-            countQuery = sql`${countQuery} WHERE ${whereClause}`;
-          }
+          // Count query
           const totalResult = await countQuery as Array<{ count: string }>;
           const total = parseInt(totalResult[0].count as string);
           
-          let dataQuery = sql`SELECT * FROM orders`;
-          if (conditions.length > 0) {
-            dataQuery = sql`${dataQuery} WHERE ${whereClause}`;
-          }
-          dataQuery = sql`${dataQuery} ORDER BY created_at DESC LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}`;
+          // Data query with pagination
+          query = sql`${query} ORDER BY created_at DESC LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}`;
+          const result = await query as Array<Record<string, unknown>>;
           
-          const result = await dataQuery as Array<Record<string, unknown>>;
+          const parseJson = (value: any) => {
+            if (typeof value === 'object') return value;
+            if (typeof value === 'string') {
+              try {
+                return JSON.parse(value);
+              } catch {
+                return value;
+              }
+            }
+            return value;
+          };
           
           const orders: Order[] = result.map((row: any) => ({
             id: row.id,
@@ -165,7 +184,7 @@ async function initDatabase() {
             recipientName: row.recipient_name,
             recipientPhone: row.recipient_phone,
             recipientAddress: row.recipient_address,
-            items: JSON.parse(row.items),
+            items: parseJson(row.items),
             createdAt: new Date(row.created_at),
           }));
           
