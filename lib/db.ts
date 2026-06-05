@@ -98,32 +98,49 @@ export async function saveOrders(orders: Order[]): Promise<void> {
 
 export async function getOrders(filter: OrderQueryFilter, page: number, pageSize: number): Promise<PaginatedResult<Order>> {
   try {
-    let query = sql`SELECT * FROM orders WHERE 1=1`;
+    // 收集所有查询条件
+    const conditions: any[] = [];
     
     if (filter.externalCode) {
-      query = query.and(sql`external_code LIKE ${`%${filter.externalCode}%`}`);
+      conditions.push(sql`external_code LIKE ${`%${filter.externalCode}%`}`);
     }
     
     if (filter.recipientName) {
-      query = query.and(sql`recipient_name LIKE ${`%${filter.recipientName}%`}`);
+      conditions.push(sql`recipient_name LIKE ${`%${filter.recipientName}%`}`);
     }
     
     if (filter.startDate) {
-      query = query.and(sql`created_at >= ${filter.startDate}`);
+      conditions.push(sql`created_at >= ${filter.startDate}`);
     }
     
     if (filter.endDate) {
-      query = query.and(sql`created_at <= ${filter.endDate}`);
+      conditions.push(sql`created_at <= ${filter.endDate}`);
     }
     
-    const totalResult = await query.clone().count('*');
+    // 拼接 WHERE 条件
+    let whereClause = sql``;
+    if (conditions.length > 0) {
+      whereClause = conditions.reduce((acc, cur, idx) => 
+        idx === 0 ? sql`${cur}` : sql`${acc} AND ${cur}`
+      );
+    }
+    
+    // 查询总数
+    let countQuery = sql`SELECT COUNT(*) as count FROM orders`;
+    if (conditions.length > 0) {
+      countQuery = sql`${countQuery} WHERE ${whereClause}`;
+    }
+    const totalResult = await countQuery;
     const total = parseInt(totalResult.rows[0].count as string);
     
-    const result = await query
-      .clone()
-      .orderBy('created_at DESC')
-      .limit(pageSize)
-      .offset((page - 1) * pageSize);
+    // 查询数据列表
+    let dataQuery = sql`SELECT * FROM orders`;
+    if (conditions.length > 0) {
+      dataQuery = sql`${dataQuery} WHERE ${whereClause}`;
+    }
+    dataQuery = sql`${dataQuery} ORDER BY created_at DESC LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}`;
+    
+    const result = await dataQuery;
     
     const orders: Order[] = result.rows.map((row: any) => ({
       id: row.id,
