@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-toastify';
-import { Search, Eye, Trash2, ChevronLeft, ChevronRight, FileText, Package } from 'lucide-react';
+import { Search, Eye, Trash2, ChevronLeft, ChevronRight, FileText, Package, Loader2 } from 'lucide-react';
 import { Order, OrderQueryFilter } from '@/lib/types';
 
 export default function OrdersPage() {
@@ -48,9 +48,9 @@ export default function OrdersPage() {
 
   return (
     <div className="space-y-6 animate-fadeIn">
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      <div className="card">
         <div className="p-6 border-b border-gray-100">
-          <h2 className="text-lg font-semibold text-gray-800">已导入运单列表</h2>
+          <h2 className="text-xl font-semibold text-gray-800">已导入运单列表</h2>
           <p className="text-sm text-gray-500 mt-1">查看所有历史导入的运单记录</p>
         </div>
         
@@ -64,7 +64,7 @@ export default function OrdersPage() {
                   placeholder="搜索外部编码..."
                   value={filter.externalCode || ''}
                   onChange={(e) => setFilter({ ...filter, externalCode: e.target.value || undefined })}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  className="input pl-10"
                 />
               </div>
             </div>
@@ -74,29 +74,30 @@ export default function OrdersPage() {
                 placeholder="搜索收件人姓名..."
                 value={filter.recipientName || ''}
                 onChange={(e) => setFilter({ ...filter, recipientName: e.target.value || undefined })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                className="input"
               />
             </div>
-            <div>
+            <div className="min-w-[120px]">
               <input
                 type="date"
                 value={filter.startDate || ''}
                 onChange={(e) => setFilter({ ...filter, startDate: e.target.value || undefined })}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                className="input"
               />
             </div>
-            <div>
+            <div className="min-w-[120px]">
               <input
                 type="date"
                 value={filter.endDate || ''}
                 onChange={(e) => setFilter({ ...filter, endDate: e.target.value || undefined })}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                className="input"
               />
             </div>
             <button
               onClick={() => { setPage(1); loadOrders(); }}
-              className="px-6 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600"
+              className="btn btn-primary"
             >
+              <Search className="w-4 h-4" />
               搜索
             </button>
           </div>
@@ -106,48 +107,61 @@ export default function OrdersPage() {
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">外部编码</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">收货门店</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">收件人</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">电话</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">物品数</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">导入时间</th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">操作</th>
+                <th className="px-5 py-3 text-left text-sm font-semibold text-gray-600 border-b">外部编码</th>
+                <th className="px-5 py-3 text-left text-sm font-semibold text-gray-600 border-b">收货门店</th>
+                <th className="px-5 py-3 text-left text-sm font-semibold text-gray-600 border-b">收件人</th>
+                <th className="px-5 py-3 text-left text-sm font-semibold text-gray-600 border-b">电话</th>
+                <th className="px-5 py-3 text-left text-sm font-semibold text-gray-600 border-b">物品数</th>
+                <th className="px-5 py-3 text-left text-sm font-semibold text-gray-600 border-b">导入时间</th>
+                <th className="px-5 py-3 text-left text-sm font-semibold text-gray-600 border-b">操作</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-gray-500">
-                    <div className="flex justify-center">
-                      <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
+                  <td colSpan={7} className="px-5 py-16 text-center">
+                    <div className="flex flex-col items-center gap-3">
+                      <Loader2 className="w-8 h-8 text-primary-500 animate-spin" />
+                      <p className="text-gray-500">加载中...</p>
                     </div>
                   </td>
                 </tr>
               ) : orders.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-gray-500">
-                    <div className="flex flex-col items-center gap-2">
-                      <Package className="w-12 h-12 text-gray-300" />
-                      <p>暂无运单数据</p>
+                  <td colSpan={7} className="px-5 py-16 text-center">
+                    <div className="flex flex-col items-center gap-4">
+                      <div className="w-16 h-16 bg-gray-100 rounded-xl flex items-center justify-center">
+                        <Package className="w-8 h-8 text-gray-300" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-700">暂无运单数据</p>
+                        <p className="text-sm text-gray-500">请先导入运单文件</p>
+                      </div>
                     </div>
                   </td>
                 </tr>
               ) : (
-                orders.map((order) => (
-                  <tr key={order.id} className="border-b hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-3 text-sm text-gray-800">{order.externalCode || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-800">{order.storeName || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-800">{order.recipientName || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-800">{order.recipientPhone || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-800">{order.items?.length || 0}</td>
-                    <td className="px-4 py-3 text-sm text-gray-500">
+                orders.map((order, index) => (
+                  <tr 
+                    key={order.id} 
+                    className={`border-b hover:bg-gray-50 transition-all duration-fast ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}
+                  >
+                    <td className="px-5 py-3 text-sm text-gray-800 font-medium">{order.externalCode || '-'}</td>
+                    <td className="px-5 py-3 text-sm text-gray-800">{order.storeName || '-'}</td>
+                    <td className="px-5 py-3 text-sm text-gray-800">{order.recipientName || '-'}</td>
+                    <td className="px-5 py-3 text-sm text-gray-800">{order.recipientPhone || '-'}</td>
+                    <td className="px-5 py-3">
+                      <span className="inline-flex items-center justify-center w-8 h-8 bg-primary-100 text-primary-600 rounded-lg text-sm font-medium">
+                        {order.items?.length || 0}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3 text-sm text-gray-500">
                       {new Date(order.createdAt).toLocaleString('zh-CN')}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-5 py-3">
                       <button
                         onClick={() => setSelectedOrder(order)}
-                        className="text-primary-600 hover:text-primary-700 p-1"
+                        className="w-8 h-8 flex items-center justify-center text-primary-600 hover:text-primary-700 hover:bg-primary-50 rounded-lg transition-all"
                         title="查看详情"
                       >
                         <Eye className="w-5 h-5" />
@@ -161,15 +175,15 @@ export default function OrdersPage() {
         </div>
 
         {totalPages > 1 && (
-          <div className="p-4 border-t border-gray-100 flex items-center justify-between">
+          <div className="p-4 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-4">
             <span className="text-sm text-gray-500">
-              共 {total} 条，第 {page} / {totalPages} 页
+              共 <span className="font-medium text-gray-700">{total}</span> 条记录，第 <span className="font-medium text-gray-700">{page}</span> / {totalPages} 页
             </span>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setPage(p => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="px-3 py-1 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                className="btn btn-outline disabled:opacity-40"
               >
                 <ChevronLeft className="w-4 h-4" />
                 上一页
@@ -177,7 +191,7 @@ export default function OrdersPage() {
               <button
                 onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
-                className="px-3 py-1 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                className="btn btn-outline disabled:opacity-40"
               >
                 下一页
                 <ChevronRight className="w-4 h-4" />
@@ -188,60 +202,71 @@ export default function OrdersPage() {
       </div>
 
       {selectedOrder && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setSelectedOrder(null)}>
-          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between p-4 border-b">
-              <div className="flex items-center gap-2">
-                <FileText className="w-5 h-5 text-primary-600" />
-                <h3 className="font-semibold text-gray-800">运单详情</h3>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn" onClick={() => setSelectedOrder(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] overflow-hidden animate-slideUp" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-5 border-b border-gray-100 bg-gradient-to-r from-primary-50 to-white">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-primary-100 rounded-xl flex items-center justify-center">
+                  <FileText className="w-5 h-5 text-primary-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-800">运单详情</h3>
               </div>
-              <button onClick={() => setSelectedOrder(null)} className="text-gray-400 hover:text-gray-600 text-2xl">×</button>
+              <button 
+                onClick={() => setSelectedOrder(null)} 
+                className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-all"
+              >
+                <span className="text-xl leading-none">×</span>
+              </button>
             </div>
-            <div className="p-6 overflow-y-auto max-h-[60vh]">
+            <div className="p-5 overflow-y-auto max-h-[60vh]">
               <div className="grid grid-cols-2 gap-4 mb-6">
-                <div>
-                  <label className="text-sm text-gray-500">外部编码</label>
-                  <p className="text-gray-800">{selectedOrder.externalCode || '-'}</p>
+                <div className="bg-gray-50 rounded-xl p-4">
+                  <label className="text-sm text-gray-500 block mb-1">外部编码</label>
+                  <p className="text-gray-800 font-medium">{selectedOrder.externalCode || '-'}</p>
                 </div>
-                <div>
-                  <label className="text-sm text-gray-500">收货门店</label>
-                  <p className="text-gray-800">{selectedOrder.storeName || '-'}</p>
+                <div className="bg-gray-50 rounded-xl p-4">
+                  <label className="text-sm text-gray-500 block mb-1">收货门店</label>
+                  <p className="text-gray-800 font-medium">{selectedOrder.storeName || '-'}</p>
                 </div>
-                <div>
-                  <label className="text-sm text-gray-500">收件人</label>
-                  <p className="text-gray-800">{selectedOrder.recipientName || '-'}</p>
+                <div className="bg-gray-50 rounded-xl p-4">
+                  <label className="text-sm text-gray-500 block mb-1">收件人</label>
+                  <p className="text-gray-800 font-medium">{selectedOrder.recipientName || '-'}</p>
                 </div>
-                <div>
-                  <label className="text-sm text-gray-500">电话</label>
-                  <p className="text-gray-800">{selectedOrder.recipientPhone || '-'}</p>
+                <div className="bg-gray-50 rounded-xl p-4">
+                  <label className="text-sm text-gray-500 block mb-1">电话</label>
+                  <p className="text-gray-800 font-medium">{selectedOrder.recipientPhone || '-'}</p>
                 </div>
-                <div className="col-span-2">
-                  <label className="text-sm text-gray-500">地址</label>
-                  <p className="text-gray-800">{selectedOrder.recipientAddress || '-'}</p>
+                <div className="col-span-2 bg-gray-50 rounded-xl p-4">
+                  <label className="text-sm text-gray-500 block mb-1">地址</label>
+                  <p className="text-gray-800 font-medium">{selectedOrder.recipientAddress || '-'}</p>
                 </div>
               </div>
               
-              <h4 className="font-medium text-gray-800 mb-3">物品明细 ({selectedOrder.items?.length || 0})</h4>
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-3 py-2 text-left text-gray-600">SKU编码</th>
-                    <th className="px-3 py-2 text-left text-gray-600">物品名称</th>
-                    <th className="px-3 py-2 text-left text-gray-600">数量</th>
-                    <th className="px-3 py-2 text-left text-gray-600">规格</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {selectedOrder.items?.map((item) => (
-                    <tr key={item.id} className="border-b">
-                      <td className="px-3 py-2">{item.skuCode}</td>
-                      <td className="px-3 py-2">{item.skuName}</td>
-                      <td className="px-3 py-2">{item.quantity}</td>
-                      <td className="px-3 py-2">{item.spec || '-'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div className="bg-gray-50 rounded-xl p-4">
+                <h4 className="font-semibold text-gray-800 mb-3">物品明细 ({selectedOrder.items?.length || 0})</h4>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-white">
+                      <tr>
+                        <th className="px-4 py-2 text-left text-gray-600 font-medium rounded-tl-lg">SKU编码</th>
+                        <th className="px-4 py-2 text-left text-gray-600 font-medium">物品名称</th>
+                        <th className="px-4 py-2 text-left text-gray-600 font-medium">数量</th>
+                        <th className="px-4 py-2 text-left text-gray-600 font-medium rounded-tr-lg">规格</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedOrder.items?.map((item) => (
+                        <tr key={item.id} className="border-b border-gray-100">
+                          <td className="px-4 py-3">{item.skuCode}</td>
+                          <td className="px-4 py-3">{item.skuName}</td>
+                          <td className="px-4 py-3 font-medium text-primary-600">{item.quantity}</td>
+                          <td className="px-4 py-3">{item.spec || '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           </div>
         </div>

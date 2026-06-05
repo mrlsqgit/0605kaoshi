@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { toast } from 'react-toastify';
-import { Upload, FileText, Settings, Download, Trash2, Plus, AlertCircle, CheckCircle, Eye } from 'lucide-react';
+import { Upload, FileText, Settings, Download, Trash2, Plus, AlertCircle, CheckCircle, Eye, ArrowLeft, Loader2 } from 'lucide-react';
 import { ParsedOrder, ParseRule, UploadProgress } from '@/lib/types';
 import { validateAllOrders } from '@/lib/parser';
 import { getParseRules, getExistingExternalCodes } from '@/lib/db';
@@ -22,6 +22,7 @@ export default function Home() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isRuleGenerating, setIsRuleGenerating] = useState(false);
   const [existingCodes, setExistingCodes] = useState<string[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const loadRules = useCallback(async () => {
     try {
@@ -35,9 +36,9 @@ export default function Home() {
     }
   }, []);
 
-  useState(() => {
+  useEffect(() => {
     loadRules();
-  });
+  }, [loadRules]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -279,12 +280,13 @@ export default function Home() {
       return;
     }
 
+    setIsSubmitting(true);
     setProgress({
       percentage: 0,
       current: 0,
       total: validOrders.length,
       status: 'uploading',
-      message: '正在提交 0 / 0 条...',
+      message: '正在提交...',
     });
 
     try {
@@ -296,9 +298,8 @@ export default function Home() {
 
       const data = await res.json();
       if (data.success) {
-        // 模拟进度更新
         for (let i = 1; i <= validOrders.length; i++) {
-          await new Promise(resolve => setTimeout(resolve, 50));
+          await new Promise(resolve => setTimeout(resolve, 30));
           setProgress(prev => prev ? {
             ...prev,
             current: i,
@@ -306,7 +307,10 @@ export default function Home() {
             message: `正在提交 ${i} / ${validOrders.length} 条...`,
           } : null);
         }
-        toast.success(`成功提交 ${data.data.count} 条运单`);
+        toast.success(`成功提交 ${data.data.count} 条运单`, {
+          position: 'top-center',
+          autoClose: 4000,
+        });
         setParsedOrders([]);
         setUploadedFile(null);
         setSelectedRule(null);
@@ -317,6 +321,7 @@ export default function Home() {
     } catch (error) {
       toast.error('提交失败');
     } finally {
+      setIsSubmitting(false);
       setTimeout(() => setProgress(null), 2000);
     }
   };
@@ -327,35 +332,43 @@ export default function Home() {
   return (
     <div className="space-y-6 animate-fadeIn">
       {progress && (
-        <div className="bg-white rounded-xl shadow-sm p-4 border border-primary-100">
-          <div className="flex items-center gap-3 mb-2">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+        <div className="card p-5 animate-slideUp">
+          <div className="flex items-center gap-4 mb-3">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-normal ${
               progress.status === 'error' ? 'bg-red-100 text-red-600' :
               progress.status === 'complete' ? 'bg-green-100 text-green-600' :
               'bg-primary-100 text-primary-600'
             }`}>
-              {progress.status === 'complete' ? <CheckCircle className="w-5 h-5" /> :
-               progress.status === 'error' ? <AlertCircle className="w-5 h-5" /> :
-               <div className="w-4 h-4 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />}
+              {progress.status === 'complete' ? (
+                <CheckCircle className="w-5 h-5" />
+              ) : progress.status === 'error' ? (
+                <AlertCircle className="w-5 h-5" />
+              ) : (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              )}
             </div>
-            <span className="text-gray-700">{progress.message}</span>
+            <div className="flex-1">
+              <p className="font-medium text-gray-800">{progress.message}</p>
+              <p className="text-sm text-gray-500">{progress.current} / {progress.total}</p>
+            </div>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
+          <div className="relative h-3 bg-gray-100 rounded-full overflow-hidden">
             <div 
-              className="bg-primary-500 h-2 rounded-full transition-all duration-300"
+              className="absolute inset-y-0 left-0 bg-gradient-to-r from-primary-400 to-primary-500 rounded-full transition-all duration-300 ease-out"
               style={{ width: `${progress.percentage}%` }}
             />
-          </div>
-          <div className="text-sm text-gray-500 mt-2">
-            {progress.current} / {progress.total}
+            <div 
+              className="absolute inset-y-0 left-0 bg-gradient-to-r from-primary-500 to-primary-600 rounded-full opacity-50 animate-pulse"
+              style={{ width: `${progress.percentage}%` }}
+            />
           </div>
         </div>
       )}
 
       {activeTab === 'upload' && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="card animate-slideUp">
           <div className="p-6 border-b border-gray-100">
-            <h2 className="text-lg font-semibold text-gray-800">上传文件</h2>
+            <h2 className="text-xl font-semibold text-gray-800">上传文件</h2>
             <p className="text-sm text-gray-500 mt-1">支持 Excel (.xlsx/.xls)、Word (.docx)、PDF 文件</p>
           </div>
           <div className="p-6">
@@ -363,10 +376,10 @@ export default function Home() {
               onDrop={handleDrop}
               onDragOver={handleDragOver}
               onClick={() => fileInputRef.current?.click()}
-              className={`border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition-all ${
+              className={`border-2 border-dashed rounded-xl p-12 text-center cursor-pointer transition-all duration-normal ${
                 uploadedFile 
                   ? 'border-primary-500 bg-primary-50' 
-                  : 'border-gray-300 hover:border-primary-400 hover:bg-gray-50'
+                  : 'border-gray-300 hover:border-primary-400 hover:bg-gray-50 hover:scale-[1.01]'
               }`}
             >
               <input
@@ -377,12 +390,12 @@ export default function Home() {
                 className="hidden"
               />
               {uploadedFile ? (
-                <div className="flex flex-col items-center gap-3">
-                  <div className="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center">
+                <div className="flex flex-col items-center gap-3 animate-bounceSoft">
+                  <div className="w-16 h-16 bg-primary-100 rounded-xl flex items-center justify-center shadow-md">
                     <FileText className="w-8 h-8 text-primary-600" />
                   </div>
                   <div>
-                    <p className="font-medium text-gray-800">{uploadedFile.name}</p>
+                    <p className="font-semibold text-gray-800">{uploadedFile.name}</p>
                     <p className="text-sm text-gray-500">{(uploadedFile.size / 1024).toFixed(1)} KB</p>
                   </div>
                   <button
@@ -390,18 +403,18 @@ export default function Home() {
                       e.stopPropagation();
                       setUploadedFile(null);
                     }}
-                    className="text-red-500 hover:text-red-700 text-sm"
+                    className="px-4 py-1.5 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-button text-sm font-medium transition-all"
                   >
                     更换文件
                   </button>
                 </div>
               ) : (
-                <div className="flex flex-col items-center gap-3">
-                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
+                <div className="flex flex-col items-center gap-4">
+                  <div className="w-16 h-16 bg-gray-100 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110">
                     <Upload className="w-8 h-8 text-gray-400" />
                   </div>
                   <div>
-                    <p className="font-medium text-gray-700">点击或拖拽文件到此处上传</p>
+                    <p className="font-semibold text-gray-700">点击或拖拽文件到此处上传</p>
                     <p className="text-sm text-gray-500">支持 .xlsx, .xls, .docx, .pdf 格式</p>
                   </div>
                 </div>
@@ -409,15 +422,15 @@ export default function Home() {
             </div>
 
             <div className="mt-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">选择解析规则</label>
-              <div className="flex gap-3">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">选择解析规则</label>
+              <div className="flex flex-col sm:flex-row gap-3">
                 <select
                   value={selectedRule?.id || ''}
                   onChange={(e) => {
                     const rule = rules.find(r => r.id === e.target.value);
                     setSelectedRule(rule || null);
                   }}
-                  className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  className="flex-1 input"
                 >
                   <option value="">请选择解析规则</option>
                   {rules.map(rule => (
@@ -429,7 +442,7 @@ export default function Home() {
                 <button
                   onClick={handleAnalyzeFile}
                   disabled={!uploadedFile || isRuleGenerating}
-                  className="px-6 py-3 bg-primary-500 text-white rounded-lg hover:bg-primary-600 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2"
+                  className="btn btn-primary"
                 >
                   <Settings className="w-5 h-5" />
                   {isRuleGenerating ? '分析中...' : 'AI生成规则'}
@@ -438,15 +451,15 @@ export default function Home() {
             </div>
 
             {selectedRule && (
-              <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+              <div className="mt-4 p-4 bg-primary-50 rounded-xl border border-primary-100 animate-slideLeft">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-medium text-blue-800">{selectedRule.name}</p>
-                    <p className="text-sm text-blue-600">{selectedRule.description}</p>
+                    <p className="font-semibold text-primary-800">{selectedRule.name}</p>
+                    <p className="text-sm text-primary-600">{selectedRule.description}</p>
                   </div>
                   <button
                     onClick={() => setSelectedRule(null)}
-                    className="text-blue-600 hover:text-blue-800 text-sm"
+                    className="px-3 py-1 text-primary-600 hover:text-primary-700 hover:bg-primary-100 rounded-button text-sm font-medium transition-all"
                   >
                     取消选择
                   </button>
@@ -454,11 +467,11 @@ export default function Home() {
               </div>
             )}
 
-            <div className="mt-6 flex justify-end gap-3">
+            <div className="mt-6 flex justify-end">
               <button
                 onClick={handleExecuteParse}
                 disabled={!uploadedFile || !selectedRule}
-                className="px-8 py-3 bg-primary-500 text-white rounded-lg hover:bg-primary-600 disabled:bg-gray-300 disabled:cursor-not-allowed font-medium"
+                className="btn btn-primary text-base px-8"
               >
                 开始解析
               </button>
@@ -468,47 +481,64 @@ export default function Home() {
       )}
 
       {activeTab === 'preview' && parsedOrders.length > 0 && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => setActiveTab('upload')}
-                className="text-primary-600 hover:text-primary-700 flex items-center gap-1"
-              >
-                ← 返回上传
-              </button>
-              <div className="h-4 w-px bg-gray-300" />
-              <span className="text-sm text-gray-600">
-                共 {parsedOrders.length} 条记录
-                {hasErrors && <span className="text-red-500 ml-2">，{totalErrors} 个错误</span>}
-              </span>
-            </div>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={handleExport}
-                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
-              >
-                <Download className="w-4 h-4" />
-                导出 Excel
-              </button>
-              <button
-                onClick={handleAddRow}
-                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2"
-              >
-                <Plus className="w-4 h-4" />
-                新增行
-              </button>
-              <button
-                onClick={handleSubmitOrders}
-                disabled={hasErrors}
-                className="px-6 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 disabled:bg-gray-300 disabled:cursor-not-allowed font-medium"
-              >
-                提交下单
-              </button>
+        <div className="space-y-4 animate-slideUp">
+          <div className="card p-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={() => setActiveTab('upload')}
+                  className="text-primary-600 hover:text-primary-700 hover:bg-primary-50 px-3 py-1.5 rounded-button flex items-center gap-1 transition-all font-medium"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  返回上传
+                </button>
+                <div className="h-4 w-px bg-gray-200" />
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-700">
+                    共 {parsedOrders.length} 条记录
+                  </span>
+                  {hasErrors && (
+                    <span className="inline-flex items-center gap-1 text-sm text-red-600 bg-red-50 px-2 py-1 rounded-full">
+                      <AlertCircle className="w-4 h-4" />
+                      {totalErrors} 个错误
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleExport}
+                  className="btn btn-secondary"
+                >
+                  <Download className="w-4 h-4" />
+                  导出 Excel
+                </button>
+                <button
+                  onClick={handleAddRow}
+                  className="btn btn-outline"
+                >
+                  <Plus className="w-4 h-4" />
+                  新增行
+                </button>
+                <button
+                  onClick={handleSubmitOrders}
+                  disabled={hasErrors || isSubmitting}
+                  className="btn btn-primary"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      提交中...
+                    </>
+                  ) : (
+                    '提交下单'
+                  )}
+                </button>
+              </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+          <div className="card overflow-hidden">
             <VirtualTable
               data={parsedOrders}
               onUpdateCell={handleUpdateCell}
@@ -517,12 +547,15 @@ export default function Home() {
             />
             {hasErrors && (
               <div className="p-4 bg-red-50 border-t border-red-100">
-                <h4 className="font-medium text-red-800 mb-2">错误列表</h4>
-                <div className="space-y-1 max-h-40 overflow-y-auto">
+                <div className="flex items-center gap-2 mb-3">
+                  <AlertCircle className="w-5 h-5 text-red-600" />
+                  <h4 className="font-semibold text-red-800">错误列表</h4>
+                </div>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
                   {parsedOrders.map((order, index) => 
                     order.errors.map((error, errorIndex) => (
-                      <p key={errorIndex} className="text-sm text-red-600">
-                        第 {index + 1} 行 - {error.field}: {error.message}
+                      <p key={errorIndex} className="text-sm text-red-600 bg-white px-3 py-2 rounded-lg border border-red-100">
+                        <span className="font-medium">第 {index + 1} 行</span> - {error.field}: {error.message}
                       </p>
                     ))
                   )}
@@ -534,48 +567,55 @@ export default function Home() {
       )}
 
       {showRuleEditor && generatedRule && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
-            <div className="flex items-center justify-between p-4 border-b">
-              <div className="flex items-center gap-2">
-                <Settings className="w-5 h-5 text-primary-600" />
-                <h3 className="font-semibold text-gray-800">AI生成解析规则</h3>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] overflow-hidden animate-slideUp">
+            <div className="flex items-center justify-between p-5 border-b border-gray-100 bg-gradient-to-r from-primary-50 to-white">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-primary-100 rounded-xl flex items-center justify-center">
+                  <Settings className="w-5 h-5 text-primary-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-800">AI生成解析规则</h3>
               </div>
               <button
                 onClick={() => setShowRuleEditor(false)}
-                className="text-gray-400 hover:text-gray-600 text-2xl"
+                className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-all"
               >
-                ×
+                <span className="text-xl leading-none">×</span>
               </button>
             </div>
-            <div className="p-4 overflow-y-auto max-h-[60vh]">
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">规则名称</label>
+            <div className="p-5 overflow-y-auto max-h-[60vh]">
+              <div className="mb-5">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">规则名称</label>
                 <input
                   value={generatedRule.name}
                   onChange={(e) => setGeneratedRule(prev => ({ ...prev!, name: e.target.value }))}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  className="input"
+                  placeholder="请输入规则名称"
                 />
               </div>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">描述</label>
+              <div className="mb-5">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">描述</label>
                 <textarea
                   value={generatedRule.description}
                   onChange={(e) => setGeneratedRule(prev => ({ ...prev!, description: e.target.value }))}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  className="input"
                   rows={3}
+                  placeholder="请输入规则描述"
                 />
               </div>
-              <div className="bg-gray-50 rounded-lg p-4">
-                <p className="text-sm text-gray-600 mb-2">字段映射（AI置信度标注）:</p>
-                <div className="space-y-2">
+              <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-4 border border-gray-100">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-2 h-2 bg-primary-500 rounded-full" />
+                  <p className="text-sm font-medium text-gray-700">字段映射（AI置信度标注）</p>
+                </div>
+                <div className="space-y-3">
                   {generatedRule.fieldMappings.slice(0, 5).map((mapping, index) => (
-                    <div key={index} className="flex items-center gap-3 text-sm">
-                      <span className="text-gray-500">{mapping.source}</span>
-                      <span>→</span>
-                      <span className="text-primary-600">{mapping.target}</span>
+                    <div key={index} className="flex items-center gap-3 text-sm bg-white px-3 py-2 rounded-lg border border-gray-100">
+                      <span className="text-gray-500 font-medium w-24 truncate">{mapping.source}</span>
+                      <span className="text-gray-300">→</span>
+                      <span className="text-primary-600 font-medium">{mapping.target}</span>
                       {mapping.aiSuggestion && (
-                        <span className="text-xs px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded-full">
+                        <span className="ml-auto text-xs px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded-full">
                           AI建议
                         </span>
                       )}
@@ -584,16 +624,16 @@ export default function Home() {
                 </div>
               </div>
             </div>
-            <div className="flex justify-end gap-3 p-4 border-t">
+            <div className="flex justify-end gap-3 p-5 border-t border-gray-100 bg-gray-50">
               <button
                 onClick={() => setShowRuleEditor(false)}
-                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                className="btn btn-outline"
               >
                 取消
               </button>
               <button
                 onClick={handleSaveRule}
-                className="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 flex items-center gap-2"
+                className="btn btn-primary"
               >
                 <Eye className="w-4 h-4" />
                 保存规则
