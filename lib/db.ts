@@ -118,53 +118,80 @@ async function initDatabase() {
 
       getOrders: async (filter: OrderQueryFilter, page: number, pageSize: number): Promise<PaginatedResult<Order>> => {
         try {
-          // Build dynamic query using conditional chaining
-          let query = sql`SELECT * FROM orders`;
-          let countQuery = sql`SELECT COUNT(*) as count FROM orders`;
-          
-          if (filter.externalCode) {
-            const codePattern = `%${filter.externalCode}%`;
-            query = sql`${query} WHERE external_code LIKE ${codePattern}`;
-            countQuery = sql`${countQuery} WHERE external_code LIKE ${codePattern}`;
+          // Handle no filter case separately for simplicity
+          if (!filter.externalCode && !filter.recipientName && !filter.startDate && !filter.endDate) {
+            // Simple query without filters
+            const totalResult = await sql`SELECT COUNT(*) as count FROM orders` as Array<{ count: string }>;
+            const total = parseInt(totalResult[0].count as string);
+            
+            const result = await sql`SELECT * FROM orders ORDER BY created_at DESC LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}` as Array<Record<string, unknown>>;
+            
+            const parseJson = (value: any) => {
+              if (typeof value === 'object') return value;
+              if (typeof value === 'string') {
+                try {
+                  return JSON.parse(value);
+                } catch {
+                  return value;
+                }
+              }
+              return value;
+            };
+            
+            const orders: Order[] = result.map((row: any) => ({
+              id: row.id,
+              externalCode: row.external_code,
+              storeName: row.store_name,
+              recipientName: row.recipient_name,
+              recipientPhone: row.recipient_phone,
+              recipientAddress: row.recipient_address,
+              items: parseJson(row.items),
+              createdAt: new Date(row.created_at),
+            }));
+            
+            return {
+              items: orders,
+              total,
+              page,
+              pageSize,
+            };
           }
           
+          // Build dynamic query with filters
+          const conditions: string[] = [];
+          const queryParams: any[] = [];
+          
+          if (filter.externalCode) {
+            conditions.push('external_code LIKE $1');
+            queryParams.push(`%${filter.externalCode}%`);
+          }
+          
+          let paramIdx = queryParams.length;
           if (filter.recipientName) {
-            const namePattern = `%${filter.recipientName}%`;
-            if (filter.externalCode) {
-              query = sql`${query} AND recipient_name LIKE ${namePattern}`;
-              countQuery = sql`${countQuery} AND recipient_name LIKE ${namePattern}`;
-            } else {
-              query = sql`${query} WHERE recipient_name LIKE ${namePattern}`;
-              countQuery = sql`${countQuery} WHERE recipient_name LIKE ${namePattern}`;
-            }
+            conditions.push(`recipient_name LIKE $${++paramIdx}`);
+            queryParams.push(`%${filter.recipientName}%`);
           }
           
           if (filter.startDate) {
-            if (filter.externalCode || filter.recipientName) {
-              query = sql`${query} AND created_at >= ${filter.startDate}`;
-              countQuery = sql`${countQuery} AND created_at >= ${filter.startDate}`;
-            } else {
-              query = sql`${query} WHERE created_at >= ${filter.startDate}`;
-              countQuery = sql`${countQuery} WHERE created_at >= ${filter.startDate}`;
-            }
+            conditions.push(`created_at >= $${++paramIdx}`);
+            queryParams.push(filter.startDate);
           }
           
           if (filter.endDate) {
-            if (filter.externalCode || filter.recipientName || filter.startDate) {
-              query = sql`${query} AND created_at <= ${filter.endDate}`;
-              countQuery = sql`${countQuery} AND created_at <= ${filter.endDate}`;
-            } else {
-              query = sql`${query} WHERE created_at <= ${filter.endDate}`;
-              countQuery = sql`${countQuery} WHERE created_at <= ${filter.endDate}`;
-            }
+            conditions.push(`created_at <= $${++paramIdx}`);
+            queryParams.push(filter.endDate);
           }
           
-          // Count query
-          const totalResult = await countQuery as Array<{ count: string }>;
+          const whereClause = `WHERE ${conditions.join(' AND ')}`;
+          
+          // Use raw SQL query with parameter array
+          const countQuery = `SELECT COUNT(*) as count FROM orders ${whereClause}`;
+          const totalResult = await sql(countQuery, queryParams) as Array<{ count: string }>;
           const total = parseInt(totalResult[0].count as string);
           
           // Data query with pagination
-          const result = await sql`${query} ORDER BY created_at DESC LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}` as Array<Record<string, unknown>>;
+          const dataQuery = `SELECT * FROM orders ${whereClause} ORDER BY created_at DESC LIMIT $${paramIdx + 1} OFFSET $${paramIdx + 2}`;
+          const result = await sql(dataQuery, [...queryParams, pageSize, (page - 1) * pageSize]) as Array<Record<string, unknown>>;
           
           const parseJson = (value: any) => {
             if (typeof value === 'object') return value;
