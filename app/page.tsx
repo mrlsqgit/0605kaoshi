@@ -1,13 +1,14 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { toast } from 'react-toastify';
-import { Upload, FileText, Settings, Eye, Download, Trash2, Plus, AlertCircle, CheckCircle } from 'lucide-react';
+import { Upload, FileText, Settings, Download, Trash2, Plus, AlertCircle, CheckCircle, Eye } from 'lucide-react';
 import { ParsedOrder, ParseRule, UploadProgress } from '@/lib/types';
 import { validateAllOrders } from '@/lib/parser';
-import { getParseRules } from '@/lib/db';
+import { getParseRules, getExistingExternalCodes } from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
 import * as XLSX from 'xlsx';
+import VirtualTable from '@/components/VirtualTable';
 
 export default function Home() {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
@@ -20,6 +21,7 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<'upload' | 'preview'>('upload');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isRuleGenerating, setIsRuleGenerating] = useState(false);
+  const [existingCodes, setExistingCodes] = useState<string[]>([]);
 
   const loadRules = useCallback(async () => {
     try {
@@ -117,6 +119,22 @@ export default function Home() {
     });
 
     try {
+      // 先加载已存在的外部编码用于重复检测
+      const codesRes = await fetch('/api/orders?pageSize=1');
+      if (codesRes.ok) {
+        const codesData = await codesRes.json();
+        if (codesData.success) {
+          // 获取所有已存在的外部编码
+          const allCodesRes = await fetch('/api/orders?pageSize=10000');
+          if (allCodesRes.ok) {
+            const allCodesData = await allCodesRes.json();
+            if (allCodesData.success) {
+              setExistingCodes(allCodesData.data.items.map((o: any) => o.externalCode).filter(Boolean));
+            }
+          }
+        }
+      }
+
       const formData = new FormData();
       formData.append('file', uploadedFile);
       formData.append('rule', JSON.stringify(selectedRule));
@@ -129,13 +147,34 @@ export default function Home() {
       const data = await res.json();
       if (data.success) {
         const validatedOrders = validateAllOrders(data.data.orders);
-        setParsedOrders(validatedOrders);
+        
+        // 检测外部编码重复（批次内）
+        const batchCodes = validatedOrders.map(o => o.externalCode).filter(Boolean);
+        const duplicateInBatch = batchCodes.filter((code, idx) => batchCodes.indexOf(code) !== idx);
+        
+        const ordersWithDuplicateCheck = validatedOrders.map(order => {
+          if (order.externalCode && duplicateInBatch.includes(order.externalCode)) {
+            return {
+              ...order,
+              errors: [...order.errors, { field: 'externalCode', message: `批次内重复（与第${batchCodes.indexOf(order.externalCode) + 1}行重复）` }]
+            };
+          }
+          if (order.externalCode && existingCodes.includes(order.externalCode)) {
+            return {
+              ...order,
+              errors: [...order.errors, { field: 'externalCode', message: '与已存在数据重复' }]
+            };
+          }
+          return order;
+        });
+
+        setParsedOrders(ordersWithDuplicateCheck);
         setProgress({
           percentage: 100,
           current: 100,
           total: 100,
           status: 'complete',
-          message: '解析完成',
+          message: `解析完成，共 ${ordersWithDuplicateCheck.length} 条`,
         });
         setActiveTab('preview');
       } else {
@@ -171,11 +210,11 @@ export default function Home() {
     }
   };
 
-  const handleUpdateCell = (index: number, field: keyof ParsedOrder, value: string) => {
+  const handleUpdateCell = (index: number, field: string, value: string) => {
     const updated = [...parsedOrders];
     updated[index] = {
       ...updated[index],
-      [field]: field === 'quantity' ? parseFloat(value) || 1 : value,
+      [field as keyof ParsedOrder]: field === 'quantity' ? parseFloat(value) || 1 : value,
     };
     const validated = validateAllOrders(updated);
     setParsedOrders(validated);
@@ -245,7 +284,7 @@ export default function Home() {
       current: 0,
       total: validOrders.length,
       status: 'uploading',
-      message: '正在提交...',
+      message: '正在提交 0 / 0 条...',
     });
 
     try {
@@ -257,6 +296,16 @@ export default function Home() {
 
       const data = await res.json();
       if (data.success) {
+        // 模拟进度更新
+        for (let i = 1; i <= validOrders.length; i++) {
+          await new Promise(resolve => setTimeout(resolve, 50));
+          setProgress(prev => prev ? {
+            ...prev,
+            current: i,
+            percentage: Math.round((i / validOrders.length) * 100),
+            message: `正在提交 ${i} / ${validOrders.length} 条...`,
+          } : null);
+        }
         toast.success(`成功提交 ${data.data.count} 条运单`);
         setParsedOrders([]);
         setUploadedFile(null);
@@ -268,7 +317,7 @@ export default function Home() {
     } catch (error) {
       toast.error('提交失败');
     } finally {
-      setProgress(null);
+      setTimeout(() => setProgress(null), 2000);
     }
   };
 
@@ -460,132 +509,12 @@ export default function Home() {
           </div>
 
           <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 sticky top-0">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">行号</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">外部编码</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">收货门店</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">收件人姓名</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">收件人电话</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">收件人地址</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">SKU编码</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">SKU名称</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">数量</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">规格</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">备注</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-600 border-b">操作</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {parsedOrders.map((order, index) => (
-                    <tr 
-                      key={order.id} 
-                      className={`border-b transition-colors ${order.errors.length > 0 ? 'bg-red-50' : 'hover:bg-gray-50'}`}
-                    >
-                      <td className="px-4 py-3 text-sm text-gray-500">{index + 1}</td>
-                      <td className="px-4 py-3">
-                        <input
-                          value={order.externalCode}
-                          onChange={(e) => handleUpdateCell(index, 'externalCode', e.target.value)}
-                          className="w-full px-2 py-1 border border-transparent hover:border-gray-300 rounded focus:border-primary-500 focus:ring-1 focus:ring-primary-500"
-                        />
-                      </td>
-                      <td className="px-4 py-3">
-                        <input
-                          value={order.storeName}
-                          onChange={(e) => handleUpdateCell(index, 'storeName', e.target.value)}
-                          className="w-full px-2 py-1 border border-transparent hover:border-gray-300 rounded focus:border-primary-500 focus:ring-1 focus:ring-primary-500"
-                        />
-                      </td>
-                      <td className="px-4 py-3">
-                        <input
-                          value={order.recipientName}
-                          onChange={(e) => handleUpdateCell(index, 'recipientName', e.target.value)}
-                          className="w-full px-2 py-1 border border-transparent hover:border-gray-300 rounded focus:border-primary-500 focus:ring-1 focus:ring-primary-500"
-                        />
-                      </td>
-                      <td className="px-4 py-3">
-                        <input
-                          value={order.recipientPhone}
-                          onChange={(e) => handleUpdateCell(index, 'recipientPhone', e.target.value)}
-                          className={`w-full px-2 py-1 border rounded focus:ring-1 ${
-                            order.errors.some(e => e.field === 'recipientPhone') 
-                              ? 'border-red-500 focus:border-red-500 focus:ring-red-500' 
-                              : 'border-transparent hover:border-gray-300 focus:border-primary-500 focus:ring-primary-500'
-                          }`}
-                        />
-                      </td>
-                      <td className="px-4 py-3">
-                        <input
-                          value={order.recipientAddress}
-                          onChange={(e) => handleUpdateCell(index, 'recipientAddress', e.target.value)}
-                          className="w-full px-2 py-1 border border-transparent hover:border-gray-300 rounded focus:border-primary-500 focus:ring-1 focus:ring-primary-500"
-                        />
-                      </td>
-                      <td className="px-4 py-3">
-                        <input
-                          value={order.skuCode}
-                          onChange={(e) => handleUpdateCell(index, 'skuCode', e.target.value)}
-                          className={`w-full px-2 py-1 border rounded focus:ring-1 ${
-                            order.errors.some(e => e.field === 'skuCode') 
-                              ? 'border-red-500 focus:border-red-500 focus:ring-red-500 bg-red-50' 
-                              : 'border-transparent hover:border-gray-300 focus:border-primary-500 focus:ring-primary-500'
-                          }`}
-                        />
-                      </td>
-                      <td className="px-4 py-3">
-                        <input
-                          value={order.skuName}
-                          onChange={(e) => handleUpdateCell(index, 'skuName', e.target.value)}
-                          className={`w-full px-2 py-1 border rounded focus:ring-1 ${
-                            order.errors.some(e => e.field === 'skuName') 
-                              ? 'border-red-500 focus:border-red-500 focus:ring-red-500 bg-red-50' 
-                              : 'border-transparent hover:border-gray-300 focus:border-primary-500 focus:ring-primary-500'
-                          }`}
-                        />
-                      </td>
-                      <td className="px-4 py-3">
-                        <input
-                          type="number"
-                          value={order.quantity}
-                          onChange={(e) => handleUpdateCell(index, 'quantity', e.target.value)}
-                          className={`w-full px-2 py-1 border rounded focus:ring-1 ${
-                            order.errors.some(e => e.field === 'quantity') 
-                              ? 'border-red-500 focus:border-red-500 focus:ring-red-500 bg-red-50' 
-                              : 'border-transparent hover:border-gray-300 focus:border-primary-500 focus:ring-primary-500'
-                          }`}
-                        />
-                      </td>
-                      <td className="px-4 py-3">
-                        <input
-                          value={order.spec}
-                          onChange={(e) => handleUpdateCell(index, 'spec', e.target.value)}
-                          className="w-full px-2 py-1 border border-transparent hover:border-gray-300 rounded focus:border-primary-500 focus:ring-1 focus:ring-primary-500"
-                        />
-                      </td>
-                      <td className="px-4 py-3">
-                        <input
-                          value={order.remark}
-                          onChange={(e) => handleUpdateCell(index, 'remark', e.target.value)}
-                          className="w-full px-2 py-1 border border-transparent hover:border-gray-300 rounded focus:border-primary-500 focus:ring-1 focus:ring-primary-500"
-                        />
-                      </td>
-                      <td className="px-4 py-3">
-                        <button
-                          onClick={() => handleDeleteRow(index)}
-                          className="text-red-500 hover:text-red-700 p-1"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
+            <VirtualTable
+              data={parsedOrders}
+              onUpdateCell={handleUpdateCell}
+              onDeleteRow={handleDeleteRow}
+              onAddRow={handleAddRow}
+            />
             {hasErrors && (
               <div className="p-4 bg-red-50 border-t border-red-100">
                 <h4 className="font-medium text-red-800 mb-2">错误列表</h4>

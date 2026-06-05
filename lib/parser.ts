@@ -15,10 +15,10 @@ export async function parseExcel(file: File): Promise<{ sheets: string[][][]; sh
   
   workbook.SheetNames.forEach((name) => {
     const worksheet = workbook.Sheets[name];
-    const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false });
+    const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false }) as unknown[][];
     
-    const stringData: string[][] = jsonData.map((row: any[]) =>
-      row.map((cell) => {
+    const stringData: string[][] = jsonData.map((row) =>
+      (row as unknown[]).map((cell) => {
         if (cell === null || cell === undefined) return '';
         return String(cell);
       })
@@ -433,7 +433,7 @@ function applyAggregation(orders: ParsedOrder[], rule: ParseRule): ParsedOrder[]
           aggregatedValue = values[values.length - 1] || '';
           break;
         case 'concat':
-          aggregatedValue = [...new Set(values)].join(', ');
+          aggregatedValue = Array.from(new Set(values)).join(', ');
           break;
       }
       

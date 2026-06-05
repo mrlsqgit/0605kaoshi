@@ -130,8 +130,8 @@ export async function getOrders(filter: OrderQueryFilter, page: number, pageSize
     if (conditions.length > 0) {
       countQuery = sql`${countQuery} WHERE ${whereClause}`;
     }
-    const totalResult = await countQuery;
-    const total = parseInt(totalResult.rows[0].count as string);
+    const totalResult = await countQuery as Array<{ count: string }>;
+    const total = parseInt(totalResult[0].count as string);
     
     // 查询数据列表
     let dataQuery = sql`SELECT * FROM orders`;
@@ -140,9 +140,9 @@ export async function getOrders(filter: OrderQueryFilter, page: number, pageSize
     }
     dataQuery = sql`${dataQuery} ORDER BY created_at DESC LIMIT ${pageSize} OFFSET ${(page - 1) * pageSize}`;
     
-    const result = await dataQuery;
+    const result = await dataQuery as Array<Record<string, unknown>>;
     
-    const orders: Order[] = result.rows.map((row: any) => ({
+    const orders: Order[] = result.map((row: any) => ({
       id: row.id,
       externalCode: row.external_code,
       storeName: row.store_name,
@@ -167,22 +167,22 @@ export async function getOrders(filter: OrderQueryFilter, page: number, pageSize
 
 export async function getOrderById(id: string): Promise<Order | null> {
   try {
-    const result = await sql`SELECT * FROM orders WHERE id = ${id}`;
+    const result = await sql`SELECT * FROM orders WHERE id = ${id}` as Array<Record<string, unknown>>;
     
-    if (result.rows.length === 0) {
+    if (result.length === 0) {
       return null;
     }
     
-    const row = result.rows[0];
+    const row = result[0];
     return {
-      id: row.id,
-      externalCode: row.external_code,
-      storeName: row.store_name,
-      recipientName: row.recipient_name,
-      recipientPhone: row.recipient_phone,
-      recipientAddress: row.recipient_address,
-      items: JSON.parse(row.items),
-      createdAt: new Date(row.created_at),
+      id: row.id as string,
+      externalCode: row.external_code as string,
+      storeName: row.store_name as string,
+      recipientName: row.recipient_name as string,
+      recipientPhone: row.recipient_phone as string,
+      recipientAddress: row.recipient_address as string,
+      items: JSON.parse(row.items as string),
+      createdAt: new Date(row.created_at as string),
     };
   } catch (error) {
     console.error('Error getting order by id:', error);
@@ -192,7 +192,7 @@ export async function getOrderById(id: string): Promise<Order | null> {
 
 export async function deleteOrder(id: string): Promise<boolean> {
   try {
-    const result = await sql`DELETE FROM orders WHERE id = ${id}`;
+    const result = await sql`DELETE FROM orders WHERE id = ${id}` as { rowCount?: number };
     return result.rowCount !== undefined && result.rowCount > 0;
   } catch (error) {
     console.error('Error deleting order:', error);
@@ -247,20 +247,20 @@ export async function saveParseRule(rule: ParseRule): Promise<void> {
 
 export async function getParseRules(): Promise<ParseRule[]> {
   try {
-    const result = await sql`SELECT * FROM parse_rules ORDER BY created_at DESC`;
+    const result = await sql`SELECT * FROM parse_rules ORDER BY created_at DESC` as Array<Record<string, unknown>>;
     
-    return result.rows.map((row: any) => ({
-      id: row.id,
-      name: row.name,
-      description: row.description,
-      fileType: row.file_type,
-      fieldMappings: JSON.parse(row.field_mappings),
-      sections: JSON.parse(row.sections),
-      aggregation: JSON.parse(row.aggregation),
-      matrix: JSON.parse(row.matrix),
-      card: JSON.parse(row.card),
-      createdAt: new Date(row.created_at),
-      updatedAt: new Date(row.updated_at),
+    return result.map((row: any) => ({
+      id: row.id as string,
+      name: row.name as string,
+      description: row.description as string,
+      fileType: row.file_type as 'excel' | 'word' | 'pdf',
+      fieldMappings: JSON.parse(row.field_mappings as string),
+      sections: JSON.parse(row.sections as string),
+      aggregation: JSON.parse(row.aggregation as string),
+      matrix: JSON.parse(row.matrix as string),
+      card: JSON.parse(row.card as string),
+      createdAt: new Date(row.created_at as string),
+      updatedAt: new Date(row.updated_at as string),
     }));
   } catch (error) {
     console.error('Error getting parse rules:', error);
@@ -270,25 +270,25 @@ export async function getParseRules(): Promise<ParseRule[]> {
 
 export async function getParseRuleById(id: string): Promise<ParseRule | null> {
   try {
-    const result = await sql`SELECT * FROM parse_rules WHERE id = ${id}`;
+    const result = await sql`SELECT * FROM parse_rules WHERE id = ${id}` as Array<Record<string, unknown>>;
     
-    if (result.rows.length === 0) {
+    if (result.length === 0) {
       return null;
     }
     
-    const row = result.rows[0];
+    const row = result[0];
     return {
-      id: row.id,
-      name: row.name,
-      description: row.description,
-      fileType: row.file_type,
-      fieldMappings: JSON.parse(row.field_mappings),
-      sections: JSON.parse(row.sections),
-      aggregation: JSON.parse(row.aggregation),
-      matrix: JSON.parse(row.matrix),
-      card: JSON.parse(row.card),
-      createdAt: new Date(row.created_at),
-      updatedAt: new Date(row.updated_at),
+      id: row.id as string,
+      name: row.name as string,
+      description: row.description as string,
+      fileType: row.file_type as 'excel' | 'word' | 'pdf',
+      fieldMappings: JSON.parse(row.field_mappings as string),
+      sections: JSON.parse(row.sections as string),
+      aggregation: JSON.parse(row.aggregation as string),
+      matrix: JSON.parse(row.matrix as string),
+      card: JSON.parse(row.card as string),
+      createdAt: new Date(row.created_at as string),
+      updatedAt: new Date(row.updated_at as string),
     };
   } catch (error) {
     console.error('Error getting parse rule by id:', error);
@@ -298,7 +298,7 @@ export async function getParseRuleById(id: string): Promise<ParseRule | null> {
 
 export async function deleteParseRule(id: string): Promise<boolean> {
   try {
-    const result = await sql`DELETE FROM parse_rules WHERE id = ${id}`;
+    const result = await sql`DELETE FROM parse_rules WHERE id = ${id}` as { rowCount?: number };
     return result.rowCount !== undefined && result.rowCount > 0;
   } catch (error) {
     console.error('Error deleting parse rule:', error);
@@ -308,8 +308,8 @@ export async function deleteParseRule(id: string): Promise<boolean> {
 
 export async function checkDuplicateExternalCode(externalCode: string): Promise<boolean> {
   try {
-    const result = await sql`SELECT 1 FROM orders WHERE external_code = ${externalCode}`;
-    return result.rows.length > 0;
+    const result = await sql`SELECT 1 FROM orders WHERE external_code = ${externalCode}` as Array<Record<string, unknown>>;
+    return result.length > 0;
   } catch (error) {
     console.error('Error checking duplicate external code:', error);
     throw error;
@@ -318,8 +318,8 @@ export async function checkDuplicateExternalCode(externalCode: string): Promise<
 
 export async function getExistingExternalCodes(): Promise<string[]> {
   try {
-    const result = await sql`SELECT external_code FROM orders WHERE external_code IS NOT NULL`;
-    return result.rows.map((row: any) => row.external_code);
+    const result = await sql`SELECT external_code FROM orders WHERE external_code IS NOT NULL` as Array<Record<string, unknown>>;
+    return result.map((row: any) => row.external_code as string);
   } catch (error) {
     console.error('Error getting existing external codes:', error);
     throw error;
