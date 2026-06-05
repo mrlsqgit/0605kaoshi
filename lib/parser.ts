@@ -366,12 +366,28 @@ function validateOrderData(order: Partial<ParsedOrder>): ValidationError[] {
     errors.push({ field: 'quantity', message: 'SKU发货数量必须为正数' });
   }
   
-  if (!order.storeName && !order.recipientName) {
-    errors.push({ field: 'storeName', message: '收货门店或收件人信息至少填写一项' });
+  const hasGroupA = order.storeName && order.storeName.trim();
+  const hasRecipientName = order.recipientName && order.recipientName.trim();
+  const hasRecipientPhone = order.recipientPhone && order.recipientPhone.trim();
+  const hasRecipientAddress = order.recipientAddress && order.recipientAddress.trim();
+  const hasGroupB = hasRecipientName && hasRecipientPhone && hasRecipientAddress;
+  
+  if (!hasGroupA && !hasGroupB) {
+    errors.push({ field: 'storeName', message: 'A组/B组至少填写一组（A组：收货门店；B组：收件人姓名+电话+地址）' });
   }
   
-  if (order.recipientPhone && !/^1[3-9]\d{9}$/.test(order.recipientPhone.replace(/\s/g, ''))) {
-    errors.push({ field: 'recipientPhone', message: '收件人电话格式不正确' });
+  if (hasRecipientName || hasRecipientPhone || hasRecipientAddress) {
+    if (!hasRecipientName) {
+      errors.push({ field: 'recipientName', message: 'B组模式下收件人姓名不能为空' });
+    }
+    if (!hasRecipientPhone) {
+      errors.push({ field: 'recipientPhone', message: 'B组模式下收件人电话不能为空' });
+    } else if (!/^1[3-9]\d{9}$/.test(order.recipientPhone!.replace(/\s/g, ''))) {
+      errors.push({ field: 'recipientPhone', message: '收件人电话格式不正确（应为11位手机号）' });
+    }
+    if (!hasRecipientAddress) {
+      errors.push({ field: 'recipientAddress', message: 'B组模式下收件人地址不能为空' });
+    }
   }
   
   return errors;
