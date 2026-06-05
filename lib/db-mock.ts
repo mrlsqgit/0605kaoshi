@@ -36,26 +36,30 @@ export async function getOrders(filter: OrderQueryFilter, page: number, pageSize
   let filteredOrders = [...mockOrders];
   
   if (filter.externalCode) {
+    const searchCode = filter.externalCode.toLowerCase();
     filteredOrders = filteredOrders.filter(o => 
-      o.externalCode?.toLowerCase().includes(filter.externalCode.toLowerCase())
+      o.externalCode?.toLowerCase().includes(searchCode)
     );
   }
   
   if (filter.recipientName) {
+    const searchName = filter.recipientName.toLowerCase();
     filteredOrders = filteredOrders.filter(o => 
-      o.recipientName?.toLowerCase().includes(filter.recipientName.toLowerCase())
+      o.recipientName?.toLowerCase().includes(searchName)
     );
   }
   
   if (filter.startDate) {
+    const startDate = new Date(filter.startDate);
     filteredOrders = filteredOrders.filter(o => 
-      o.createdAt >= new Date(filter.startDate)
+      o.createdAt >= startDate
     );
   }
   
   if (filter.endDate) {
+    const endDate = new Date(filter.endDate);
     filteredOrders = filteredOrders.filter(o => 
-      o.createdAt <= new Date(filter.endDate)
+      o.createdAt <= endDate
     );
   }
   
