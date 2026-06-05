@@ -44,44 +44,54 @@ async function initDatabase() {
     const sql = neon(process.env.DATABASE_URL!);
     
     // Test the connection
-    await sql`SELECT NOW()`;
-    console.log('✅ Connected to real Neon database');
+    try {
+      await sql`SELECT NOW()`;
+      console.log('✅ Connected to real Neon database');
+    } catch (connectionError) {
+      console.error('❌ Failed to connect to Neon database:', connectionError);
+      throw new Error('Database connection failed: ' + (connectionError as Error).message);
+    }
     
-    // Auto create tables if they don't exist - CRITICAL for production
+    // Auto create tables if not exists - CRITICAL for production
     console.log('🔧 Creating database tables if not exists...');
-    await sql`
-      CREATE TABLE IF NOT EXISTS orders (
-        id TEXT PRIMARY KEY,
-        external_code TEXT,
-        store_name TEXT,
-        recipient_name TEXT,
-        recipient_phone TEXT,
-        recipient_address TEXT,
-        items JSONB,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-    `;
+    try {
+      await sql`
+        CREATE TABLE IF NOT EXISTS orders (
+          id TEXT PRIMARY KEY,
+          external_code TEXT,
+          store_name TEXT,
+          recipient_name TEXT,
+          recipient_phone TEXT,
+          recipient_address TEXT,
+          items JSONB,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+      `;
 
-    await sql`
-      CREATE TABLE IF NOT EXISTS parse_rules (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        description TEXT,
-        file_type TEXT NOT NULL,
-        field_mappings JSONB,
-        sections JSONB,
-        aggregation JSONB,
-        matrix JSONB,
-        card JSONB,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-    `;
+      await sql`
+        CREATE TABLE IF NOT EXISTS parse_rules (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          description TEXT,
+          file_type TEXT NOT NULL,
+          field_mappings JSONB,
+          sections JSONB,
+          aggregation JSONB,
+          matrix JSONB,
+          card JSONB,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+      `;
 
-    await sql`CREATE INDEX IF NOT EXISTS idx_orders_external_code ON orders(external_code);`;
-    await sql`CREATE INDEX IF NOT EXISTS idx_orders_recipient_name ON orders(recipient_name);`;
-    await sql`CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at);`;
-    console.log('✅ Database tables created/verified');
+      await sql`CREATE INDEX IF NOT EXISTS idx_orders_external_code ON orders(external_code);`;
+      await sql`CREATE INDEX IF NOT EXISTS idx_orders_recipient_name ON orders(recipient_name);`;
+      await sql`CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at);`;
+      console.log('✅ Database tables created/verified');
+    } catch (tableError) {
+      console.error('❌ Failed to create database tables:', tableError);
+      throw new Error('Table creation failed: ' + (tableError as Error).message);
+    }
     
     // Export real implementation
     mockDb = {
