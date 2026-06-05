@@ -349,10 +349,8 @@ async function initDatabase() {
   }
 }
 
-// Initialize on first use
-await initDatabase();
-
 // Export functions that delegate to the active implementation
+// Database will be initialized lazily on first call
 export async function createTables() {
   await initDatabase();
   return mockDb.createTables();
