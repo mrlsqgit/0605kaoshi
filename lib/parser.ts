@@ -111,37 +111,220 @@ function parseExcelWithRule(rule: ParseRule, content: { sheets: string[][][]; sh
   const orders: ParsedOrder[] = [];
   
   content.sheets.forEach((sheet, sheetIndex) => {
-    const bodySection = rule.sections.find(s => s.type === 'body');
-    if (!bodySection) return;
+    const sheetName = content.sheetNames[sheetIndex];
     
-    const effectiveStartRow = Math.max(0, bodySection.startRow - 1);
-    const effectiveEndRow = bodySection.endRow > 0 ? bodySection.endRow - 1 : sheet.length - 1;
-    
-    const headerRowIndex = bodySection.headerRow - 1;
-    const headers: { [key: string]: number } = {};
-    
-    if (bodySection.hasHeader && headerRowIndex >= 0 && headerRowIndex < sheet.length) {
-      sheet[headerRowIndex].forEach((cell, colIndex) => {
-        if (cell) {
-          headers[cell.trim()] = colIndex;
+    if (rule.matrix.enabled) {
+      const matrixOrders = parseMatrixExcel(sheet, sheetName, rule);
+      orders.push(...matrixOrders);
+    } else if (rule.card.enabled) {
+      const cardOrders = parseCardExcel(sheet, sheetName, rule);
+      orders.push(...cardOrders);
+    } else {
+      const bodySection = rule.sections.find(s => s.type === 'body');
+      if (!bodySection) return;
+      
+      const effectiveStartRow = Math.max(0, bodySection.startRow - 1);
+      const effectiveEndRow = bodySection.endRow > 0 ? bodySection.endRow - 1 : sheet.length - 1;
+      
+      const headerRowIndex = bodySection.headerRow - 1;
+      const headers: { [key: string]: number } = {};
+      
+      if (bodySection.hasHeader && headerRowIndex >= 0 && headerRowIndex < sheet.length) {
+        sheet[headerRowIndex].forEach((cell, colIndex) => {
+          if (cell) {
+            headers[cell.trim()] = colIndex;
+          }
+        });
+      }
+      
+      for (let rowIndex = effectiveStartRow; rowIndex <= effectiveEndRow; rowIndex++) {
+        if (bodySection.skipRows.includes(rowIndex + 1)) continue;
+        
+        const row = sheet[rowIndex];
+        if (!row || row.every(cell => cell.trim() === '')) continue;
+        
+        const order = createOrderFromRow(row, headers, rule.fieldMappings, rowIndex);
+        if (order) {
+          order.externalCode = order.externalCode || sheetName;
+          orders.push(order);
         }
-      });
-    }
-    
-    for (let rowIndex = effectiveStartRow; rowIndex <= effectiveEndRow; rowIndex++) {
-      if (bodySection.skipRows.includes(rowIndex + 1)) continue;
-      
-      const row = sheet[rowIndex];
-      if (!row || row.every(cell => cell.trim() === '')) continue;
-      
-      const order = createOrderFromRow(row, headers, rule.fieldMappings, rowIndex);
-      if (order) {
-        orders.push(order);
       }
     }
   });
   
   return applyAggregation(orders, rule);
+}
+
+function parseMatrixExcel(sheet: string[][], sheetName: string, rule: ParseRule): ParsedOrder[] {
+  const orders: ParsedOrder[] = [];
+  const { rowHeaders, colHeaders, dataStartRow, dataStartCol, valueSeparator } = rule.matrix;
+  
+  const rowHeaderLabels: string[] = [];
+  rowHeaders.forEach(rowIdx => {
+    if (rowIdx - 1 >= 0 && rowIdx - 1 < sheet.length) {
+      rowHeaderLabels.push(sheet[rowIdx - 1].join(valueSeparator));
+    }
+  });
+  
+  const colHeaderLabels: string[] = [];
+  if (colHeaders.length > 0) {
+    colHeaders.forEach(colIdx => {
+      const values: string[] = [];
+      for (let r = 0; r < sheet.length && r < dataStartRow - 1; r++) {
+        if (sheet[r] && sheet[r][colIdx - 1]) {
+          values.push(sheet[r][colIdx - 1]);
+        }
+      }
+      colHeaderLabels.push(values.join(valueSeparator));
+    });
+  } else {
+    const headerRow = dataStartRow - 2 >= 0 ? sheet[dataStartRow - 2] : [];
+    for (let c = dataStartCol - 1; c < (sheet[0]?.length || 0); c++) {
+      colHeaderLabels.push(headerRow[c] || `Column ${c + 1}`);
+    }
+  }
+  
+  for (let rowIdx = dataStartRow - 1; rowIdx < sheet.length; rowIdx++) {
+    const row = sheet[rowIdx];
+    if (!row || row.every(cell => cell.trim() === '')) continue;
+    
+    const rowLabel = row[0]?.trim() || '';
+    if (!rowLabel) continue;
+    
+    for (let colIdx = dataStartCol - 1; colIdx < row.length; colIdx++) {
+      const value = row[colIdx]?.trim();
+      if (!value || parseFloat(value) <= 0) continue;
+      
+      const order: ParsedOrder = {
+        id: uuidv4(),
+        externalCode: sheetName,
+        storeName: rowHeaderLabels.join(' ') || '',
+        recipientName: '',
+        recipientPhone: '',
+        recipientAddress: '',
+        skuCode: colHeaderLabels[colIdx - dataStartCol + 1] || `SKU_${colIdx + 1}`,
+        skuName: colHeaderLabels[colIdx - dataStartCol + 1] || `Item_${colIdx + 1}`,
+        quantity: parseFloat(value) || 1,
+        spec: rowLabel,
+        remark: '',
+        rowIndex: rowIdx + 1,
+        errors: [],
+      };
+      
+      order.errors = validateOrderData(order);
+      orders.push(order);
+    }
+  }
+  
+  return orders;
+}
+
+function parseCardExcel(sheet: string[][], sheetName: string, rule: ParseRule): ParsedOrder[] {
+  const orders: ParsedOrder[] = [];
+  const { startPattern, endPattern, cardSeparator } = rule.card;
+  
+  let currentCard: string[] = [];
+  let inCard = false;
+  
+  for (let rowIdx = 0; rowIdx < sheet.length; rowIdx++) {
+    const row = sheet[rowIdx];
+    const rowText = row.join('|');
+    
+    if (startPattern && rowText.includes(startPattern)) {
+      inCard = true;
+      currentCard = [];
+    }
+    
+    if (inCard) {
+      currentCard.push(rowText);
+    }
+    
+    if (endPattern && rowText.includes(endPattern)) {
+      inCard = false;
+      
+      if (currentCard.length > 0) {
+        const cardOrders = parseSingleCard(currentCard, sheetName, rule);
+        orders.push(...cardOrders);
+      }
+      currentCard = [];
+    }
+  }
+  
+  if (currentCard.length > 0) {
+    const cardOrders = parseSingleCard(currentCard, sheetName, rule);
+    orders.push(...cardOrders);
+  }
+  
+  return orders;
+}
+
+function parseSingleCard(cardLines: string[], sheetName: string, rule: ParseRule): ParsedOrder[] {
+  const orders: ParsedOrder[] = [];
+  
+  const order: ParsedOrder = {
+    id: uuidv4(),
+    externalCode: sheetName,
+    storeName: '',
+    recipientName: '',
+    recipientPhone: '',
+    recipientAddress: '',
+    skuCode: '',
+    skuName: '',
+    quantity: 1,
+    spec: '',
+    remark: '',
+    rowIndex: 0,
+    errors: [],
+  };
+  
+  const items: { skuCode: string; skuName: string; quantity: number; spec: string }[] = [];
+  
+  cardLines.forEach(line => {
+    const mapping = rule.fieldMappings.find(m => 
+      line.includes(m.source) || (m.pattern && new RegExp(m.pattern).test(line))
+    );
+    
+    if (mapping) {
+      const value = extractValueFromLine(line, mapping);
+      if (mapping.target === 'skuCode' || mapping.target === 'skuName') {
+        items.push({ skuCode: '', skuName: '', quantity: 1, spec: '' });
+        (items[items.length - 1] as any)[mapping.target] = value;
+      } else {
+        (order as any)[mapping.target] = value;
+      }
+    } else {
+      const qtyMatch = line.match(/(\d+)\s*[件个]/);
+      if (qtyMatch && items.length > 0) {
+        items[items.length - 1].quantity = parseInt(qtyMatch[1]) || 1;
+      }
+      
+      const specMatch = line.match(/规格[：:]\s*(.+)/);
+      if (specMatch && items.length > 0) {
+        items[items.length - 1].spec = specMatch[1].trim();
+      }
+    }
+  });
+  
+  if (items.length > 0) {
+    items.forEach((item, idx) => {
+      const itemOrder = {
+        ...order,
+        id: `${order.id}-${idx}`,
+        skuCode: item.skuCode || order.skuCode,
+        skuName: item.skuName || order.skuName,
+        quantity: item.quantity,
+        spec: item.spec || order.spec,
+        rowIndex: idx + 1,
+      };
+      itemOrder.errors = validateOrderData(itemOrder);
+      orders.push(itemOrder);
+    });
+  } else if (order.skuCode || order.skuName) {
+    order.errors = validateOrderData(order);
+    orders.push(order);
+  }
+  
+  return orders;
 }
 
 function parseWordWithRule(rule: ParseRule, content: string): ParsedOrder[] {
@@ -425,7 +608,10 @@ function applyAggregation(orders: ParsedOrder[], rule: ParseRule): ParsedOrder[]
   const groups: { [key: string]: ParsedOrder[] } = {};
   
   orders.forEach(order => {
-    const key = (order as any)[rule.aggregation.groupByField] || 'NO_GROUP';
+    let key = (order as any)[rule.aggregation.groupByField] || 'NO_GROUP';
+    if (key === 'NO_GROUP') {
+      key = `${order.storeName || 'NO_STORE'}_${order.externalCode || 'NO_CODE'}`;
+    }
     if (!groups[key]) {
       groups[key] = [];
     }
@@ -435,7 +621,32 @@ function applyAggregation(orders: ParsedOrder[], rule: ParseRule): ParsedOrder[]
   const result: ParsedOrder[] = [];
   
   Object.values(groups).forEach(group => {
-    const firstOrder = group[0];
+    if (group.length === 1) {
+      result.push(group[0]);
+      return;
+    }
+    
+    const firstOrder = { ...group[0] };
+    
+    const sharedFields: (keyof ParsedOrder)[] = [
+      'externalCode', 
+      'storeName', 
+      'recipientName', 
+      'recipientPhone', 
+      'recipientAddress',
+      'remark'
+    ];
+    
+    sharedFields.forEach(field => {
+      const values = group.map(o => (o as any)[field]).filter(v => v && v.trim());
+      const uniqueValues = Array.from(new Set(values));
+      
+      if (uniqueValues.length === 1) {
+        (firstOrder as any)[field] = uniqueValues[0];
+      } else if (uniqueValues.length > 1) {
+        (firstOrder as any)[field] = uniqueValues.join(' / ');
+      }
+    });
     
     rule.aggregation.aggregateFields.forEach(field => {
       const values = group.map(o => (o as any)[field]).filter(v => v);
@@ -451,11 +662,14 @@ function applyAggregation(orders: ParsedOrder[], rule: ParseRule): ParsedOrder[]
         case 'concat':
           aggregatedValue = Array.from(new Set(values)).join(', ');
           break;
+        default:
+          aggregatedValue = values[0] || '';
       }
       
       (firstOrder as any)[field] = aggregatedValue;
     });
     
+    firstOrder.errors = validateOrderData(firstOrder);
     result.push(firstOrder);
   });
   
