@@ -111,6 +111,8 @@ export default function Home() {
   const handleExecuteParse = async () => {
     if (!uploadedFile || !selectedRule) return;
 
+    const startTime = Date.now();
+    
     setProgress({
       percentage: 0,
       current: 0,
@@ -120,22 +122,6 @@ export default function Home() {
     });
 
     try {
-      // 先加载已存在的外部编码用于重复检测
-      const codesRes = await fetch('/api/orders?pageSize=1');
-      if (codesRes.ok) {
-        const codesData = await codesRes.json();
-        if (codesData.success) {
-          // 获取所有已存在的外部编码
-          const allCodesRes = await fetch('/api/orders?pageSize=10000');
-          if (allCodesRes.ok) {
-            const allCodesData = await allCodesRes.json();
-            if (allCodesData.success) {
-              setExistingCodes(allCodesData.data.items.map((o: any) => o.externalCode).filter(Boolean));
-            }
-          }
-        }
-      }
-
       const formData = new FormData();
       formData.append('file', uploadedFile);
       formData.append('rule', JSON.stringify(selectedRule));
@@ -149,33 +135,42 @@ export default function Home() {
       if (data.success) {
         const validatedOrders = validateAllOrders(data.data.orders);
         
-        // 检测外部编码重复（批次内）
         const batchCodes = validatedOrders.map(o => o.externalCode).filter(Boolean);
-        const duplicateInBatch = batchCodes.filter((code, idx) => batchCodes.indexOf(code) !== idx);
+        const duplicateInBatch = new Set<string>();
+        const codeCountMap = new Map<string, number>();
         
-        const ordersWithDuplicateCheck = validatedOrders.map(order => {
-          if (order.externalCode && duplicateInBatch.includes(order.externalCode)) {
-            return {
-              ...order,
-              errors: [...order.errors, { field: 'externalCode', message: `批次内重复（与第${batchCodes.indexOf(order.externalCode) + 1}行重复）` }]
-            };
+        batchCodes.forEach((code, idx) => {
+          const prevIdx = codeCountMap.get(code);
+          if (prevIdx !== undefined) {
+            duplicateInBatch.add(code);
           }
-          if (order.externalCode && existingCodes.includes(order.externalCode)) {
-            return {
-              ...order,
-              errors: [...order.errors, { field: 'externalCode', message: '与已存在数据重复' }]
-            };
+          codeCountMap.set(code, idx);
+        });
+
+        const ordersWithDuplicateCheck = validatedOrders.map((order, orderIdx) => {
+          const newErrors = [...order.errors];
+          
+          if (order.externalCode && duplicateInBatch.has(order.externalCode)) {
+            const firstOccurrence = codeCountMap.get(order.externalCode)!;
+            if (firstOccurrence !== orderIdx) {
+              newErrors.push({ field: 'externalCode', message: `批次内重复（与第${firstOccurrence + 1}行重复）` });
+            }
           }
-          return order;
+          
+          return { ...order, errors: newErrors };
         });
 
         setParsedOrders(ordersWithDuplicateCheck);
+        
+        const endTime = Date.now();
+        const elapsedTime = (endTime - startTime) / 1000;
+        
         setProgress({
           percentage: 100,
           current: 100,
           total: 100,
           status: 'complete',
-          message: `解析完成，共 ${ordersWithDuplicateCheck.length} 条`,
+          message: `解析完成，共 ${ordersWithDuplicateCheck.length} 条，耗时 ${elapsedTime.toFixed(2)} 秒`,
         });
         setActiveTab('preview');
       } else {

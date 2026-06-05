@@ -8,21 +8,53 @@ import { v4 as uuidv4 } from 'uuid';
 
 export async function parseExcel(file: File): Promise<{ sheets: string[][][]; sheetNames: string[] }> {
   const arrayBuffer = await file.arrayBuffer();
-  const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+  const workbook = XLSX.read(arrayBuffer, { 
+    type: 'array',
+    cellDates: false,
+    cellNF: false,
+    cellHTML: false,
+    raw: true
+  });
   
   const sheets: string[][][] = [];
   const sheetNames: string[] = [];
   
   workbook.SheetNames.forEach((name) => {
     const worksheet = workbook.Sheets[name];
-    const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false }) as unknown[][];
     
-    const stringData: string[][] = jsonData.map((row) =>
-      (row as unknown[]).map((cell) => {
-        if (cell === null || cell === undefined) return '';
-        return String(cell);
-      })
-    );
+    const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
+    const rowCount = range.e.r + 1;
+    const colCount = range.e.c + 1;
+    
+    const stringData: string[][] = [];
+    
+    for (let rowIdx = 0; rowIdx < rowCount; rowIdx++) {
+      const row: string[] = [];
+      for (let colIdx = 0; colIdx < colCount; colIdx++) {
+        const cellAddress = XLSX.utils.encode_cell({ r: rowIdx, c: colIdx });
+        const cell = worksheet[cellAddress];
+        
+        if (!cell) {
+          row.push('');
+          continue;
+        }
+        
+        if (cell.t === 'n') {
+          const numValue = cell.v as number;
+          if (Number.isInteger(numValue)) {
+            row.push(String(numValue));
+          } else {
+            row.push(String(numValue));
+          }
+        } else {
+          row.push(String(cell.v) || '');
+        }
+      }
+      
+      if (row.some(cell => cell.trim())) {
+        stringData.push(row);
+      }
+    }
     
     sheets.push(stringData);
     sheetNames.push(name);
@@ -677,8 +709,16 @@ function applyAggregation(orders: ParsedOrder[], rule: ParseRule): ParsedOrder[]
 }
 
 export function validateAllOrders(orders: ParsedOrder[]): ParsedOrder[] {
-  return orders.map(order => ({
-    ...order,
-    errors: validateOrderData(order),
-  }));
+  const result: ParsedOrder[] = [];
+  
+  for (let i = 0; i < orders.length; i += 100) {
+    const batch = orders.slice(i, Math.min(i + 100, orders.length));
+    const validatedBatch = batch.map(order => ({
+      ...order,
+      errors: validateOrderData(order),
+    }));
+    result.push(...validatedBatch);
+  }
+  
+  return result;
 }
