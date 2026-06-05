@@ -265,16 +265,28 @@ async function initDatabase() {
         try {
           const result = await sql`SELECT * FROM parse_rules ORDER BY created_at DESC` as Array<Record<string, unknown>>;
           
+          const parseJson = (value: any) => {
+            if (typeof value === 'object') return value;
+            if (typeof value === 'string') {
+              try {
+                return JSON.parse(value);
+              } catch {
+                return value;
+              }
+            }
+            return value;
+          };
+          
           return result.map((row: any) => ({
             id: row.id as string,
             name: row.name as string,
             description: row.description as string,
             fileType: row.file_type as 'excel' | 'word' | 'pdf',
-            fieldMappings: JSON.parse(row.field_mappings as string),
-            sections: JSON.parse(row.sections as string),
-            aggregation: JSON.parse(row.aggregation as string),
-            matrix: JSON.parse(row.matrix as string),
-            card: JSON.parse(row.card as string),
+            fieldMappings: parseJson(row.field_mappings),
+            sections: parseJson(row.sections),
+            aggregation: parseJson(row.aggregation),
+            matrix: parseJson(row.matrix),
+            card: parseJson(row.card),
             createdAt: new Date(row.created_at as string),
             updatedAt: new Date(row.updated_at as string),
           }));
@@ -293,16 +305,29 @@ async function initDatabase() {
           }
           
           const row = result[0];
+          
+          const parseJson = (value: any) => {
+            if (typeof value === 'object') return value;
+            if (typeof value === 'string') {
+              try {
+                return JSON.parse(value);
+              } catch {
+                return value;
+              }
+            }
+            return value;
+          };
+          
           return {
             id: row.id as string,
             name: row.name as string,
             description: row.description as string,
             fileType: row.file_type as 'excel' | 'word' | 'pdf',
-            fieldMappings: JSON.parse(row.field_mappings as string),
-            sections: JSON.parse(row.sections as string),
-            aggregation: JSON.parse(row.aggregation as string),
-            matrix: JSON.parse(row.matrix as string),
-            card: JSON.parse(row.card as string),
+            fieldMappings: parseJson(row.field_mappings),
+            sections: parseJson(row.sections),
+            aggregation: parseJson(row.aggregation),
+            matrix: parseJson(row.matrix),
+            card: parseJson(row.card),
             createdAt: new Date(row.created_at as string),
             updatedAt: new Date(row.updated_at as string),
           };
