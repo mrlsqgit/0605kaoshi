@@ -1,0 +1,36 @@
+{
+  "name": "universal-import-system",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^0.9.4",
+    "next": "14.2.3",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "xlsx": "^0.18.5",
+    "pdfjs-dist": "^4.4.168",
+    "mammoth": "^1.6.0",
+    "lucide-react": "^0.395.0",
+    "react-virtualized": "^9.22.5",
+    "react-toastify": "^10.0.5",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.12",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@types/react-virtualized": "^9.21.29",
+    "@types/uuid": "^9.0.8",
+    "@types/xlsx": "^0.0.36",
+    "autoprefixer": "^10.4.19",
+    "postcss": "^8.4.38",
+    "tailwindcss": "^3.4.3",
+    "typescript": "^5.4.5"
+  }
+}
