@@ -358,8 +358,8 @@ async function initDatabase() {
 
       deleteParseRule: async (id: string): Promise<boolean> => {
         try {
-          const result = await sql`DELETE FROM parse_rules WHERE id = ${id}` as { rowCount?: number };
-          return result.rowCount !== undefined && result.rowCount > 0;
+          const result = await sql`DELETE FROM parse_rules WHERE id = ${id} RETURNING id` as Array<Record<string, unknown>>;
+          return result.length > 0;
         } catch (error) {
           console.error('Error deleting parse rule:', error);
           throw error;
