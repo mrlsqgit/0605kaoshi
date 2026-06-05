@@ -124,39 +124,73 @@ export async function parseFile(file: File): Promise<{ type: string; content: st
 export function executeParseRule(rule: ParseRule, fileContent: any): ParsedOrder[] {
   const orders: ParsedOrder[] = [];
   
+  // Validate file content structure
+  if (!fileContent) {
+    console.warn('executeParseRule: fileContent is null or undefined');
+    return orders;
+  }
+  
   if (rule.fileType === 'excel') {
+    if (!fileContent.sheets || !Array.isArray(fileContent.sheets)) {
+      console.warn('executeParseRule: Invalid Excel content structure');
+      return orders;
+    }
     return parseExcelWithRule(rule, fileContent);
   }
   
   if (rule.fileType === 'word') {
+    if (typeof fileContent !== 'string') {
+      console.warn('executeParseRule: Invalid Word content structure');
+      return orders;
+    }
     return parseWordWithRule(rule, fileContent);
   }
   
   if (rule.fileType === 'pdf') {
+    if (typeof fileContent !== 'string') {
+      console.warn('executeParseRule: Invalid PDF content structure');
+      return orders;
+    }
     return parsePdfWithRule(rule, fileContent);
   }
   
+  console.warn('executeParseRule: Unknown fileType:', rule.fileType);
   return orders;
 }
 
 function parseExcelWithRule(rule: ParseRule, content: { sheets: string[][][]; sheetNames: string[] }): ParsedOrder[] {
   const orders: ParsedOrder[] = [];
   
+  console.log('parseExcelWithRule: Starting parse, sheets count:', content.sheets.length);
+  console.log('parseExcelWithRule: rule.matrix.enabled:', rule.matrix?.enabled, 'rule.card.enabled:', rule.card?.enabled);
+  
   content.sheets.forEach((sheet, sheetIndex) => {
     const sheetName = content.sheetNames[sheetIndex];
+    console.log('parseExcelWithRule: Processing sheet:', sheetName, 'rows:', sheet.length);
     
-    if (rule.matrix.enabled) {
+    if (rule.matrix?.enabled) {
+      console.log('parseExcelWithRule: Using matrix parsing');
       const matrixOrders = parseMatrixExcel(sheet, sheetName, rule);
+      console.log('parseExcelWithRule: Matrix orders found:', matrixOrders.length);
       orders.push(...matrixOrders);
-    } else if (rule.card.enabled) {
+    } else if (rule.card?.enabled) {
+      console.log('parseExcelWithRule: Using card parsing');
       const cardOrders = parseCardExcel(sheet, sheetName, rule);
+      console.log('parseExcelWithRule: Card orders found:', cardOrders.length);
       orders.push(...cardOrders);
     } else {
-      const bodySection = rule.sections.find(s => s.type === 'body');
-      if (!bodySection) return;
+      const bodySection = rule.sections?.find(s => s.type === 'body');
+      if (!bodySection) {
+        console.log('parseExcelWithRule: No body section found');
+        return;
+      }
+      
+      console.log('parseExcelWithRule: Body section found:', JSON.stringify(bodySection));
       
       const effectiveStartRow = Math.max(0, bodySection.startRow - 1);
       const effectiveEndRow = bodySection.endRow > 0 ? bodySection.endRow - 1 : sheet.length - 1;
+      
+      console.log('parseExcelWithRule: Processing rows', effectiveStartRow, 'to', effectiveEndRow);
       
       const headerRowIndex = bodySection.headerRow - 1;
       const headers: { [key: string]: number } = {};
@@ -167,24 +201,37 @@ function parseExcelWithRule(rule: ParseRule, content: { sheets: string[][][]; sh
             headers[cell.trim()] = colIndex;
           }
         });
+        console.log('parseExcelWithRule: Headers found:', Object.keys(headers));
       }
       
       for (let rowIndex = effectiveStartRow; rowIndex <= effectiveEndRow; rowIndex++) {
-        if (bodySection.skipRows.includes(rowIndex + 1)) continue;
+        if (bodySection.skipRows.includes(rowIndex + 1)) {
+          console.log('parseExcelWithRule: Skipping row:', rowIndex + 1);
+          continue;
+        }
         
         const row = sheet[rowIndex];
-        if (!row || row.every(cell => cell.trim() === '')) continue;
+        if (!row || row.every(cell => cell.trim() === '')) {
+          console.log('parseExcelWithRule: Empty row:', rowIndex + 1);
+          continue;
+        }
         
         const order = createOrderFromRow(row, headers, rule.fieldMappings, rowIndex);
         if (order) {
           order.externalCode = order.externalCode || sheetName;
           orders.push(order);
+        } else {
+          console.log('parseExcelWithRule: No order created for row:', rowIndex + 1);
         }
       }
     }
   });
   
-  return applyAggregation(orders, rule);
+  console.log('parseExcelWithRule: Total orders before aggregation:', orders.length);
+  const result = applyAggregation(orders, rule);
+  console.log('parseExcelWithRule: Total orders after aggregation:', result.length);
+  
+  return result;
 }
 
 function parseMatrixExcel(sheet: string[][], sheetName: string, rule: ParseRule): ParsedOrder[] {
