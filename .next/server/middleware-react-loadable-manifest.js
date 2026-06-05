@@ -1,1 +1,0 @@
-self.__REACT_LOADABLE_MANIFEST='{"lib\\\\parser.ts -> pdfjs-dist":{"id":971,"files":["static/chunks/9b0008ae.7dc2dcd9d7b3c694.js"]}}';
