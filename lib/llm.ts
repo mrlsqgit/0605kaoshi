@@ -3,7 +3,8 @@
 
 import { ParseRule, FieldMapping, SectionRule, AggregationRule, MatrixRule, CardRule } from './types';
 
-const LLM_API_KEY = process.env.LLM_API_KEY;
+// 从环境变量读取配置，如果没有则使用默认值
+const LLM_API_KEY = process.env.LLM_API_KEY || '';
 const LLM_API_URL = process.env.LLM_API_URL || 'https://api.deepseek.com/v1/chat/completions';
 const LLM_MODEL = process.env.LLM_MODEL || 'deepseek-chat';
 
@@ -110,7 +111,14 @@ ${fileContent.length > 5000 ? fileContent.substring(0, 5000) + '...[内容截断
     { role: 'user', content: userPrompt },
   ];
 
+  // 检查API密钥是否配置
+  if (!LLM_API_KEY) {
+    console.warn('LLM_API_KEY not configured, using default rule');
+    return generateDefaultRule(fileName, fileType);
+  }
+
   try {
+    console.log('Calling LLM API:', LLM_API_URL, 'Model:', LLM_MODEL);
     const response = await fetch(LLM_API_URL, {
       method: 'POST',
       headers: {
@@ -127,14 +135,23 @@ ${fileContent.length > 5000 ? fileContent.substring(0, 5000) + '...[内容截断
 
     if (!response.ok) {
       const errorText = await response.text();
+      console.error('LLM API error:', response.status, errorText);
       throw new Error(`LLM API error: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
+    console.log('LLM API response received');
+    
+    if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+      console.error('Invalid LLM response structure:', data);
+      throw new Error('Invalid LLM response structure');
+    }
+    
     const ruleJson = data.choices[0].message.content;
 
     try {
       const rule = JSON.parse(ruleJson) as ParseRule;
+      console.log('Successfully parsed LLM response as rule');
       return {
         ...rule,
         id: `rule-${Date.now()}`,
