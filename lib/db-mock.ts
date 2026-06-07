@@ -6,7 +6,65 @@ import { Order, ParseRule, OrderQueryFilter, PaginatedResult } from './types';
 
 // In-memory storage for development
 let mockOrders: Order[] = [];
-let mockParseRules: ParseRule[] = [];
+
+// Default parse rules for development
+let mockParseRules: ParseRule[] = [
+  {
+    id: 'default-excel-rule',
+    name: '通用Excel解析规则',
+    description: '适用于标准Excel表格的解析规则',
+    fileType: 'excel',
+    fieldMappings: [
+      { source: '外部编码', target: 'externalCode', type: 'direct' },
+      { source: '收货门店', target: 'storeName', type: 'direct' },
+      { source: '收件人姓名', target: 'recipientName', type: 'direct' },
+      { source: '收件人电话', target: 'recipientPhone', type: 'direct' },
+      { source: '收件人地址', target: 'recipientAddress', type: 'direct' },
+      { source: 'SKU物品编码', target: 'skuCode', type: 'direct' },
+      { source: 'SKU物品名称', target: 'skuName', type: 'direct' },
+      { source: 'SKU发货数量', target: 'quantity', type: 'direct' },
+      { source: 'SKU规格型号', target: 'spec', type: 'direct' },
+      { source: '备注', target: 'remark', type: 'direct' },
+    ],
+    sections: [
+      {
+        id: 'body-section',
+        name: '数据区域',
+        type: 'body',
+        startRow: 2,
+        endRow: 0,
+        startCol: 1,
+        endCol: 0,
+        skipRows: [],
+        skipCols: [],
+        hasHeader: true,
+        headerRow: 1,
+      },
+    ],
+    aggregation: {
+      enabled: true,
+      groupByField: 'externalCode',
+      aggregateFields: ['skuCode', 'skuName', 'quantity'],
+      mergeStrategy: 'concat',
+    },
+    matrix: {
+      enabled: false,
+      rowHeaders: [],
+      colHeaders: [],
+      dataStartRow: 1,
+      dataStartCol: 1,
+      valueSeparator: '|',
+    },
+    card: {
+      enabled: false,
+      startPattern: '',
+      endPattern: '',
+      cardSeparator: '',
+    },
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+];
 
 export async function createTables() {
   console.log('🧪 [Mock DB] createTables() - Skipping in local dev');
