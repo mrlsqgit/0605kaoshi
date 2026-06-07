@@ -475,10 +475,14 @@ function parseWordWithRule(rule: ParseRule, content: string): ParsedOrder[] {
 function parsePdfWithRule(rule: ParseRule, content: string): ParsedOrder[] {
   const orders: ParsedOrder[] = [];
   
+  console.log('parsePdfWithRule: Starting PDF parse, content length:', content.length);
+  
   const pages = content.split(/\[Page \d+\]/).filter(p => p.trim());
+  console.log('parsePdfWithRule: Number of pages:', pages.length);
   
   pages.forEach((page, pageIndex) => {
     const lines = page.split('\n').filter(line => line.trim() !== '');
+    console.log(`parsePdfWithRule: Page ${pageIndex + 1} lines count:`, lines.length);
     
     const order: ParsedOrder = {
       id: uuidv4(),
