@@ -624,18 +624,28 @@ function createOrderFromRow(row: string[], headers: { [key: string]: number }, m
       value = mapping.staticValue;
       console.log(`createOrderFromRow: Static mapping ${mapping.source} -> ${mapping.target} = ${value}`);
     } else {
-      const colIndex = headers[mapping.source];
-      if (colIndex !== undefined && row[colIndex]) {
-        value = row[colIndex].trim();
-        console.log(`createOrderFromRow: Found mapping ${mapping.source} at column ${colIndex}, value="${value}"`);
-        foundMappings.push(mapping.source);
-      } else if (mapping.defaultValue) {
-        value = mapping.defaultValue;
-        console.log(`createOrderFromRow: Using default value for ${mapping.source}: ${value}`);
-      } else {
-        console.log(`createOrderFromRow: No mapping found for ${mapping.source}, headers: ${JSON.stringify(Object.keys(headers))}`);
+        let colIndex = headers[mapping.source];
+        if (colIndex === undefined) {
+          // 模糊匹配：查找包含source的表头
+          const matchedHeader = Object.keys(headers).find(h => 
+            h.includes(mapping.source) || mapping.source.includes(h)
+          );
+          if (matchedHeader) {
+            colIndex = headers[matchedHeader];
+            console.log(`createOrderFromRow: Fuzzy matched ${mapping.source} to header "${matchedHeader}" at column ${colIndex}`);
+          }
+        }
+        if (colIndex !== undefined && row[colIndex]) {
+          value = row[colIndex].trim();
+          console.log(`createOrderFromRow: Found mapping ${mapping.source} at column ${colIndex}, value="${value}"`);
+          foundMappings.push(mapping.source);
+        } else if (mapping.defaultValue) {
+          value = mapping.defaultValue;
+          console.log(`createOrderFromRow: Using default value for ${mapping.source}: ${value}`);
+        } else {
+          console.log(`createOrderFromRow: No mapping found for ${mapping.source}, headers: ${JSON.stringify(Object.keys(headers))}`);
+        }
       }
-    }
     
     if (mapping.type === 'regex' && mapping.pattern) {
       const match = row.join('|').match(new RegExp(mapping.pattern));
