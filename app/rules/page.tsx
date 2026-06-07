@@ -143,18 +143,27 @@ export default function RulesPage() {
   };
 
   const handleSave = async () => {
-    if (!editingRule) return;
+    console.log('handleSave called');
+    console.log('editingRule:', editingRule);
+    if (!editingRule) {
+      console.log('editingRule is null');
+      return;
+    }
     
     // 验证必填字段
     if (!editingRule.name.trim()) {
+      console.log('name is empty');
       toast.error('请输入规则名称');
       return;
     }
     
     if (!editingRule.fileType) {
+      console.log('fileType is empty');
       toast.error('请选择文件类型');
       return;
     }
+    console.log('Validation passed, proceeding to save');
+    
     
     try {
       const res = await fetch('/api/rules', {
@@ -1255,8 +1264,13 @@ export default function RulesPage() {
                 取消
               </button>
               <button
-                onClick={handleSave}
-                disabled={!editingRule.name || !editingRule.fileType}
+                onClick={(e) => {
+                  console.log('Save button clicked');
+                  console.log('editingRule:', editingRule);
+                  console.log('name:', editingRule?.name, 'fileType:', editingRule?.fileType);
+                  handleSave();
+                }}
+                disabled={!editingRule?.name || !editingRule?.fileType}
                 className="px-6 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 disabled:opacity-50 flex items-center gap-2"
               >
                 <Check className="w-4 h-4" />
