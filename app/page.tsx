@@ -293,9 +293,18 @@ export default function Home() {
 
   const handleSubmitOrders = async () => {
     const validOrders = parsedOrders.filter(o => o.errors.length === 0);
+    const invalidOrders = parsedOrders.filter(o => o.errors.length > 0);
     
     if (validOrders.length === 0) {
-      toast.error('没有可提交的有效运单');
+      toast.error('没有可提交的有效运单，请先修正错误');
+      return;
+    }
+
+    if (invalidOrders.length > 0) {
+      toast.error(`${invalidOrders.length} 条记录存在错误，请先修正后再提交`, {
+        position: 'top-center',
+        autoClose: 4000,
+      });
       return;
     }
 
@@ -326,22 +335,64 @@ export default function Home() {
             message: `正在提交 ${i} / ${validOrders.length} 条...`,
           } : null);
         }
-        toast.success(`成功提交 ${data.data.count} 条运单`, {
-          position: 'top-center',
-          autoClose: 4000,
-        });
+        
+        // 更新进度为完成状态
+        setProgress(prev => prev ? {
+          ...prev,
+          percentage: 100,
+          current: validOrders.length,
+          status: 'complete',
+          message: '提交完成',
+        } : null);
+
+        // 显示提交结果汇总
+        const successCount = data.data.count || validOrders.length;
+        const failedCount = validOrders.length - successCount;
+        const duplicateCount = data.data.duplicates || 0;
+        
+        toast.success(
+          <div className="text-left">
+            <p className="font-semibold">提交结果汇总</p>
+            <p className="text-sm mt-1">
+              <span className="text-green-600">成功：{successCount} 条</span>
+              {failedCount > 0 && <span className="mx-2">|</span>}
+              {failedCount > 0 && <span className="text-red-600">失败：{failedCount} 条</span>}
+              {duplicateCount > 0 && (
+                <>
+                  <span className="mx-2">|</span>
+                  <span className="text-yellow-600">重复跳过：{duplicateCount} 条</span>
+                </>
+              )}
+            </p>
+          </div>,
+          {
+            position: 'top-center',
+            autoClose: 5000,
+          }
+        );
+
         setParsedOrders([]);
         setUploadedFile(null);
         setSelectedRule(null);
         setActiveTab('upload');
       } else {
+        setProgress(prev => prev ? {
+          ...prev,
+          status: 'error',
+          message: '提交失败',
+        } : null);
         toast.error(data.error || '提交失败');
       }
     } catch (error) {
+      setProgress(prev => prev ? {
+        ...prev,
+        status: 'error',
+        message: '提交失败',
+      } : null);
       toast.error('提交失败');
     } finally {
       setIsSubmitting(false);
-      setTimeout(() => setProgress(null), 2000);
+      setTimeout(() => setProgress(null), 3000);
     }
   };
 
