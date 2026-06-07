@@ -181,8 +181,8 @@ function parseExcelWithRule(rule: ParseRule, content: { sheets: string[][][]; sh
     } else {
       const bodySection = rule.sections?.find(s => s.type === 'body');
       if (!bodySection) {
-        console.log('parseExcelWithRule: No body section found');
-        return;
+        console.log('parseExcelWithRule: No body section found for sheet:', sheetName);
+        continue;
       }
       
       console.log('parseExcelWithRule: Body section found:', JSON.stringify(bodySection));
