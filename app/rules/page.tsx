@@ -145,12 +145,31 @@ export default function RulesPage() {
   const handleSave = async () => {
     if (!editingRule) return;
     
+    // 验证必填字段
+    if (!editingRule.name.trim()) {
+      toast.error('请输入规则名称');
+      return;
+    }
+    
+    if (!editingRule.fileType) {
+      toast.error('请选择文件类型');
+      return;
+    }
+    
     try {
       const res = await fetch('/api/rules', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editingRule),
       });
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error('Save rule failed:', res.status, errorText);
+        toast.error(`保存失败 (${res.status})`);
+        return;
+      }
+      
       const data = await res.json();
       if (data.success) {
         toast.success(isCreating ? '规则创建成功' : '规则更新成功');
@@ -160,8 +179,9 @@ export default function RulesPage() {
       } else {
         toast.error(data.error || '保存失败');
       }
-    } catch {
-      toast.error('保存失败');
+    } catch (error) {
+      console.error('Save rule error:', error);
+      toast.error('保存失败，请检查网络连接');
     }
   };
 

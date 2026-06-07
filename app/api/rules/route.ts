@@ -23,9 +23,12 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const rule: ParseRule = body;
     
-    rule.createdAt = new Date(rule.createdAt);
-    rule.updatedAt = new Date(rule.updatedAt);
+    // 安全处理日期字段，避免无效值导致错误
+    const now = new Date();
+    rule.createdAt = rule.createdAt ? new Date(rule.createdAt) : now;
+    rule.updatedAt = now;
     
+    console.log('Saving rule:', rule.id, rule.name);
     await saveParseRule(rule);
     
     return NextResponse.json({ success: true, data: rule }, { status: 201 });
