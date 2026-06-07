@@ -79,11 +79,13 @@ export async function parsePdf(file: File): Promise<string> {
   const arrayBuffer = await file.arrayBuffer();
   
   try {
-    const pdfjs = await import('pdfjs-dist/legacy/build/pdf.js');
+    const pdfjsLib = await import('pdfjs-dist');
     
-    const pdf = await pdfjs.getDocument({ 
+    const pdf = await pdfjsLib.getDocument({ 
       data: arrayBuffer,
-      disableWorker: true
+      disableWorker: true,
+      cMapUrl: 'https://unpkg.com/pdfjs-dist@4.5.136/cmaps/',
+      cMapPacked: true
     }).promise;
     let text = '';
     
