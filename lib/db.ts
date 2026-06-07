@@ -137,6 +137,13 @@ async function initDatabase() {
       saveOrders: async (orders: Order[]) => {
         try {
           console.log('saveOrders: Starting to save', orders.length, 'orders');
+          console.log('saveOrders: isMockMode:', isMockMode);
+          
+          if (!orders || orders.length === 0) {
+            console.log('saveOrders: No orders to save');
+            return;
+          }
+          
           for (let i = 0; i < orders.length; i++) {
             const order = orders[i];
             console.log(`saveOrders: Saving order ${i + 1}/${orders.length}: id=${order.id}, externalCode=${order.externalCode}`);
