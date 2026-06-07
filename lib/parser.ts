@@ -130,11 +130,18 @@ export function executeParseRule(rule: ParseRule, fileContent: any): ParsedOrder
     return orders;
   }
   
+  console.log('executeParseRule: Starting parse, fileType:', rule.fileType);
+  console.log('executeParseRule: Rule name:', rule.name);
+  
   if (rule.fileType === 'excel') {
     if (!fileContent.sheets || !Array.isArray(fileContent.sheets)) {
       console.warn('executeParseRule: Invalid Excel content structure');
       return orders;
     }
+    console.log('executeParseRule: Excel sheets count:', fileContent.sheets.length);
+    fileContent.sheets.forEach((sheet: any, idx: number) => {
+      console.log(`executeParseRule: Sheet ${idx + 1} rows: ${sheet.length}`);
+    });
     return parseExcelWithRule(rule, fileContent);
   }
   
