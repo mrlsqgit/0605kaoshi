@@ -28,7 +28,13 @@ export async function POST(request: NextRequest) {
     rule.createdAt = rule.createdAt ? new Date(rule.createdAt) : now;
     rule.updatedAt = now;
     
-    console.log('Saving rule:', rule.id, rule.name);
+    // 确保fileType字段存在
+    if (!rule.fileType || rule.fileType.trim() === '') {
+      rule.fileType = 'excel';
+      console.log('fileType was empty, defaulting to excel');
+    }
+    
+    console.log('Saving rule:', rule.id, rule.name, 'fileType:', rule.fileType);
     await saveParseRule(rule);
     
     return NextResponse.json({ success: true, data: rule }, { status: 201 });

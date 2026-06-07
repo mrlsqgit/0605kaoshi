@@ -157,8 +157,8 @@ export default function RulesPage() {
       return;
     }
     
-    if (!editingRule.fileType) {
-      console.log('fileType is empty');
+    if (!editingRule.fileType || editingRule.fileType.trim() === '') {
+      console.log('fileType is empty:', editingRule.fileType);
       toast.error('请选择文件类型');
       return;
     }
