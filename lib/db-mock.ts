@@ -1,14 +1,16 @@
 // lib/db-mock.ts
 // Mock database implementation for local development
 // This provides basic functionality without needing a real database
+// Uses localStorage for persistence across page reloads
 
 import { Order, ParseRule, OrderQueryFilter, PaginatedResult } from './types';
 
-// In-memory storage for development
-let mockOrders: Order[] = [];
+// Storage keys for localStorage
+const ORDERS_STORAGE_KEY = 'mock_orders';
+const RULES_STORAGE_KEY = 'mock_parse_rules';
 
 // Default parse rules for development
-let mockParseRules: ParseRule[] = [
+const DEFAULT_RULES: ParseRule[] = [
   {
     id: 'default-excel-rule',
     name: '通用Excel解析规则',
@@ -66,6 +68,41 @@ let mockParseRules: ParseRule[] = [
   },
 ];
 
+// Helper functions for localStorage operations
+function saveToStorage<T>(key: string, data: T[]): void {
+  try {
+    localStorage.setItem(key, JSON.stringify(data));
+    console.log(`[Mock DB] Saved ${data.length} items to ${key}`);
+  } catch (error) {
+    console.warn('[Mock DB] Failed to save to localStorage:', error);
+  }
+}
+
+function loadFromStorage<T>(key: string, defaultValue: T[]): T[] {
+  try {
+    const stored = localStorage.getItem(key);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      console.log(`[Mock DB] Loaded ${parsed.length} items from ${key}`);
+      return parsed;
+    }
+  } catch (error) {
+    console.warn('[Mock DB] Failed to load from localStorage:', error);
+  }
+  return defaultValue;
+}
+
+// Load data from localStorage or use defaults
+let mockOrders: Order[] = loadFromStorage<Order>(ORDERS_STORAGE_KEY, []);
+
+// Load rules from localStorage, use defaults if empty
+let mockParseRules: ParseRule[] = loadFromStorage<ParseRule>(RULES_STORAGE_KEY, []);
+// If no rules in storage, use defaults
+if (mockParseRules.length === 0) {
+  mockParseRules = [...DEFAULT_RULES];
+  saveToStorage(RULES_STORAGE_KEY, mockParseRules);
+}
+
 export async function createTables() {
   console.log('🧪 [Mock DB] createTables() - Skipping in local dev');
   // Do nothing for mock
@@ -79,6 +116,8 @@ export async function saveOrder(order: Order): Promise<void> {
   } else {
     mockOrders.push(order);
   }
+  // Persist to localStorage
+  saveToStorage(ORDERS_STORAGE_KEY, mockOrders);
 }
 
 export async function saveOrders(orders: Order[]): Promise<void> {
@@ -145,6 +184,8 @@ export async function deleteOrder(id: string): Promise<boolean> {
   console.log('🧪 [Mock DB] deleteOrder():', id);
   const initialLength = mockOrders.length;
   mockOrders = mockOrders.filter(o => o.id !== id);
+  // Persist to localStorage
+  saveToStorage(ORDERS_STORAGE_KEY, mockOrders);
   return mockOrders.length < initialLength;
 }
 
@@ -156,6 +197,8 @@ export async function saveParseRule(rule: ParseRule): Promise<void> {
   } else {
     mockParseRules.push(rule);
   }
+  // Persist to localStorage
+  saveToStorage(RULES_STORAGE_KEY, mockParseRules);
 }
 
 export async function getParseRules(): Promise<ParseRule[]> {
@@ -172,6 +215,8 @@ export async function deleteParseRule(id: string): Promise<boolean> {
   console.log('🧪 [Mock DB] deleteParseRule():', id);
   const initialLength = mockParseRules.length;
   mockParseRules = mockParseRules.filter(r => r.id !== id);
+  // Persist to localStorage
+  saveToStorage(RULES_STORAGE_KEY, mockParseRules);
   return mockParseRules.length < initialLength;
 }
 
