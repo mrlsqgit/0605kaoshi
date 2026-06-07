@@ -203,7 +203,12 @@ export default function RulesPage() {
 
       const data = await res.json();
       if (data.success) {
-        setEditingRule(data.data);
+        const rule = data.data;
+        // 如果AI生成的规则没有名称，自动设置默认名称
+        if (!rule.name || !rule.name.trim()) {
+          rule.name = `规则 - ${aiFile?.name || '未知文件'}`;
+        }
+        setEditingRule(rule);
         setIsCreating(true);
         setShowAIForm(false);
         setAiFile(null);
