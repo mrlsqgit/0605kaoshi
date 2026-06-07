@@ -58,7 +58,10 @@ export async function POST(request: NextRequest) {
       );
     }
     
+    const fileName = file.name;
     const fileExtension = file.name.split('.').pop()?.toLowerCase();
+    
+    console.log(`parse API: Processing file: ${fileName}, size: ${file.size} bytes`);
     
     if (!fileExtension || !['xlsx', 'xls', 'docx', 'pdf'].includes(fileExtension)) {
       return NextResponse.json(
@@ -68,10 +71,13 @@ export async function POST(request: NextRequest) {
     }
     
     const rule = JSON.parse(ruleJson) as ParseRule;
+    console.log(`parse API: Rule name: ${rule.name}, fileType: ${rule.fileType}`);
     
     const fileContent = await parseFileWithTimeout(file, fileExtension);
+    console.log(`parse API: File content parsed successfully, type: ${typeof fileContent}`);
     
     const orders: ParsedOrder[] = executeParseRule(rule, fileContent);
+    console.log(`parse API: Orders found: ${orders.length}`);
     
     const processedOrders = processOrdersInBatches(orders, MAX_ORDERS_PER_BATCH);
     
