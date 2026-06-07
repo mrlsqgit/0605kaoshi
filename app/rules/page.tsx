@@ -1265,9 +1265,15 @@ export default function RulesPage() {
               </button>
               <button
                 onClick={(e) => {
-                  console.log('Save button clicked');
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log('=== Save Button Clicked ===');
+                  console.log('Event target:', e.target);
+                  console.log('editingRule exists:', !!editingRule);
                   console.log('editingRule:', editingRule);
-                  console.log('name:', editingRule?.name, 'fileType:', editingRule?.fileType);
+                  console.log('name:', editingRule?.name, 'name.trim():', editingRule?.name?.trim());
+                  console.log('fileType:', editingRule?.fileType);
+                  console.log('disabled condition:', !editingRule?.name || !editingRule?.fileType);
                   handleSave();
                 }}
                 disabled={!editingRule?.name || !editingRule?.fileType}
