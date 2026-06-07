@@ -477,6 +477,11 @@ function parsePdfWithRule(rule: ParseRule, content: string): ParsedOrder[] {
   
   console.log('parsePdfWithRule: Starting PDF parse, content length:', content.length);
   
+  if (!content || content.trim().length === 0) {
+    console.log('parsePdfWithRule: Empty content');
+    return orders;
+  }
+  
   const pages = content.split(/\[Page \d+\]/).filter(p => p.trim());
   console.log('parsePdfWithRule: Number of pages:', pages.length);
   
@@ -507,12 +512,12 @@ function parsePdfWithRule(rule: ParseRule, content: string): ParsedOrder[] {
     const items: { skuCode: string; skuName: string; quantity: number; spec: string }[] = [];
     
     lines.forEach((line, lineIndex) => {
-      if (line.includes('合计') || line.includes('签名')) {
+      if (line.includes('合计') || line.includes('签名') || line.includes('金额')) {
         inTable = false;
         return;
       }
       
-      if (line.includes('物品') || line.includes('商品')) {
+      if (line.includes('物品') || line.includes('商品') || line.includes('品名') || line.includes('SKU')) {
         inTable = true;
         return;
       }
@@ -521,16 +526,18 @@ function parsePdfWithRule(rule: ParseRule, content: string): ParsedOrder[] {
       if (mapping) {
         const value = extractValueFromLine(line, mapping);
         (order as any)[mapping.target] = value;
+        console.log(`parsePdfWithRule: Found mapping ${mapping.source} -> ${mapping.target} = ${value}`);
       }
       
       if (inTable && line.trim()) {
         const parts = line.split(/\s{2,}/).filter(p => p.trim());
-        if (parts.length >= 3) {
+        console.log(`parsePdfWithRule: Table line parts:`, parts);
+        if (parts.length >= 2) {
           items.push({
             skuCode: parts[0]?.trim() || '',
-            skuName: parts[1]?.trim() || '',
+            skuName: parts.slice(1, -1).join(' ') || parts[1]?.trim() || '',
             spec: parts.slice(2, -1).join(' ') || '',
-            quantity: parseInt(parts[parts.length - 1]) || 1,
+            quantity: parts.length >= 3 ? (parseInt(parts[parts.length - 1]) || 1) : 1,
           });
         }
       }
@@ -552,9 +559,29 @@ function parsePdfWithRule(rule: ParseRule, content: string): ParsedOrder[] {
     } else if (order.skuCode || order.skuName) {
       order.errors = validateOrderData(order);
       orders.push(order);
+    } else {
+      // Fallback: try to extract simple order from any line containing numbers
+      lines.forEach((line, lineIndex) => {
+        const qtyMatch = line.match(/(\d+)\s*(件|个|份|箱)/);
+        if (qtyMatch) {
+          const itemOrder: ParsedOrder = {
+            ...order,
+            id: `${order.id}-fallback-${lineIndex}`,
+            skuName: line.replace(/\d+\s*(件|个|份|箱)/, '').trim(),
+            quantity: parseInt(qtyMatch[1]) || 1,
+            rowIndex: pageIndex * 100 + lineIndex,
+            errors: [],
+          };
+          itemOrder.errors = validateOrderData(itemOrder);
+          if (itemOrder.skuName && itemOrder.skuName.length > 2) {
+            orders.push(itemOrder);
+          }
+        }
+      });
     }
   });
   
+  console.log('parsePdfWithRule: Total orders found:', orders.length);
   return orders;
 }
 
