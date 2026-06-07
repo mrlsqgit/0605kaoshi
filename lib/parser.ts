@@ -180,7 +180,7 @@ function parseExcelWithRule(rule: ParseRule, content: { sheets: string[][][]; sh
       const matrixOrders = parseMatrixExcel(sheet, sheetName, rule);
       console.log('parseExcelWithRule: Matrix orders found:', matrixOrders.length);
       orders.push(...matrixOrders);
-    } else if (rule.card?.enabled) {
+    } else if (rule.card?.enabled || rule.card?.startPattern) {
       console.log('parseExcelWithRule: Using card parsing');
       const cardOrders = parseCardExcel(sheet, sheetName, rule);
       console.log('parseExcelWithRule: Card orders found:', cardOrders.length);
