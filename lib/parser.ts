@@ -83,7 +83,6 @@ export async function parsePdf(file: File): Promise<string> {
     
     const pdf = await pdfjsLib.getDocument({ 
       data: arrayBuffer,
-      disableWorker: true,
       cMapUrl: 'https://unpkg.com/pdfjs-dist@4.5.136/cmaps/',
       cMapPacked: true
     }).promise;
