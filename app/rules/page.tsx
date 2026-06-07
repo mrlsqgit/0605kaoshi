@@ -217,6 +217,19 @@ export default function RulesPage() {
         if (!rule.name || !rule.name.trim()) {
           rule.name = `规则 - ${aiFile?.name || '未知文件'}`;
         }
+        // 如果AI生成的规则没有文件类型，根据文件扩展名自动设置
+        if (!rule.fileType) {
+          const fileName = aiFile?.name || '';
+          if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
+            rule.fileType = 'excel';
+          } else if (fileName.endsWith('.docx')) {
+            rule.fileType = 'word';
+          } else if (fileName.endsWith('.pdf')) {
+            rule.fileType = 'pdf';
+          } else {
+            rule.fileType = 'excel'; // 默认设置为Excel
+          }
+        }
         setEditingRule(rule);
         setIsCreating(true);
         setShowAIForm(false);
