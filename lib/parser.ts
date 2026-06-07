@@ -79,10 +79,12 @@ export async function parsePdf(file: File): Promise<string> {
   const arrayBuffer = await file.arrayBuffer();
   
   try {
-    const pdfjs = await import('pdfjs-dist');
-    await pdfjs.GlobalWorkerOptions.workerSrc;
+    const pdfjs = await import('pdfjs-dist/legacy/build/pdf.js');
     
-    const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
+    const pdf = await pdfjs.getDocument({ 
+      data: arrayBuffer,
+      disableWorker: true
+    }).promise;
     let text = '';
     
     for (let i = 1; i <= pdf.numPages; i++) {
@@ -92,11 +94,14 @@ export async function parsePdf(file: File): Promise<string> {
       text += `[Page ${i}]\n${pageText}\n\n`;
     }
     
+    console.log('parsePdf: Extracted text length:', text.length);
     return text;
   } catch (error) {
     console.error('PDF parsing failed:', error);
     const textDecoder = new TextDecoder('utf-8', { fatal: false });
-    return textDecoder.decode(arrayBuffer);
+    const rawText = textDecoder.decode(arrayBuffer);
+    console.log('parsePdf: Fallback text length:', rawText.length);
+    return rawText;
   }
 }
 
