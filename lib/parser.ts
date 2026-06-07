@@ -568,18 +568,29 @@ function createOrderFromRow(row: string[], headers: { [key: string]: number }, m
   };
   
   let hasData = false;
+  const foundMappings: string[] = [];
+  
+  console.log(`createOrderFromRow: Processing row ${rowIndex + 1}`);
+  console.log(`createOrderFromRow: Headers available: ${JSON.stringify(Object.keys(headers))}`);
+  console.log(`createOrderFromRow: Row data: ${row.slice(0, 10).join(' | ')}${row.length > 10 ? '...' : ''}`);
   
   mappings.forEach(mapping => {
     let value = '';
     
     if (mapping.isStatic && mapping.staticValue) {
       value = mapping.staticValue;
+      console.log(`createOrderFromRow: Static mapping ${mapping.source} -> ${mapping.target} = ${value}`);
     } else {
       const colIndex = headers[mapping.source];
       if (colIndex !== undefined && row[colIndex]) {
         value = row[colIndex].trim();
+        console.log(`createOrderFromRow: Found mapping ${mapping.source} at column ${colIndex}, value="${value}"`);
+        foundMappings.push(mapping.source);
       } else if (mapping.defaultValue) {
         value = mapping.defaultValue;
+        console.log(`createOrderFromRow: Using default value for ${mapping.source}: ${value}`);
+      } else {
+        console.log(`createOrderFromRow: No mapping found for ${mapping.source}, headers: ${JSON.stringify(Object.keys(headers))}`);
       }
     }
     
@@ -587,6 +598,7 @@ function createOrderFromRow(row: string[], headers: { [key: string]: number }, m
       const match = row.join('|').match(new RegExp(mapping.pattern));
       if (match) {
         value = match[1] || value;
+        console.log(`createOrderFromRow: Regex matched for ${mapping.source}: ${value}`);
       }
     }
     
@@ -599,9 +611,14 @@ function createOrderFromRow(row: string[], headers: { [key: string]: number }, m
     if (value) hasData = true;
   });
   
-  if (!hasData) return null;
+  if (!hasData) {
+    console.log(`createOrderFromRow: No data found in row ${rowIndex + 1}, returning null`);
+    console.log(`createOrderFromRow: Found mappings: ${foundMappings.length > 0 ? foundMappings.join(', ') : 'none'}`);
+    return null;
+  }
   
   order.errors = validateOrderData(order);
+  console.log(`createOrderFromRow: Created order with skuCode=${order.skuCode}, skuName=${order.skuName}`);
   return order;
 }
 
