@@ -1276,8 +1276,7 @@ export default function RulesPage() {
                   console.log('disabled condition:', !editingRule?.name || !editingRule?.fileType);
                   handleSave();
                 }}
-                disabled={!editingRule?.name || !editingRule?.fileType}
-                className="px-6 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 disabled:opacity-50 flex items-center gap-2"
+                className="px-6 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 flex items-center gap-2 cursor-pointer"
               >
                 <Check className="w-4 h-4" />
                 保存规则
