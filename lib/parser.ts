@@ -661,11 +661,11 @@ function validateOrderData(order: Partial<ParsedOrder>): ValidationError[] {
     errors.push({ field: 'quantity', message: 'SKU发货数量必须为正数' });
   }
   
-  if (order.weight !== undefined && order.weight !== null && order.weight <= 0) {
+  if (order.weight !== undefined && order.weight !== null && order.weight !== 0 && order.weight < 0) {
     errors.push({ field: 'weight', message: '重量必须为正数' });
   }
   
-  if (order.pieces !== undefined && order.pieces !== null) {
+  if (order.pieces !== undefined && order.pieces !== null && order.pieces !== 1) {
     if (order.pieces <= 0) {
       errors.push({ field: 'pieces', message: '件数必须为正整数' });
     } else if (!Number.isInteger(order.pieces)) {
@@ -693,7 +693,7 @@ function validateOrderData(order: Partial<ParsedOrder>): ValidationError[] {
     }
     if (!hasRecipientPhone) {
       errors.push({ field: 'recipientPhone', message: 'B组模式下收件人电话不能为空' });
-    } else if (!/^1[3-9]\d{9}$/.test(order.recipientPhone!.replace(/\s/g, ''))) {
+    } else if (hasRecipientPhone && hasRecipientName && hasRecipientAddress && !/^1[3-9]\d{9}$/.test(order.recipientPhone!.replace(/\s/g, ''))) {
       errors.push({ field: 'recipientPhone', message: '收件人电话格式不正确（应为11位手机号）' });
     }
     if (!hasRecipientAddress) {
