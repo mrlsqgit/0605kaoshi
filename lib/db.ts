@@ -73,6 +73,11 @@ async function initDatabase() {
         );
       `;
 
+      // Ensure items column exists (for backward compatibility)
+      await sql`
+        ALTER TABLE orders ADD COLUMN IF NOT EXISTS items JSONB;
+      `;
+
       await sql`
         CREATE TABLE IF NOT EXISTS parse_rules (
           id TEXT PRIMARY KEY,
